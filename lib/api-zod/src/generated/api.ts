@@ -95,6 +95,88 @@ export const GetPlayerResponse = zod.object({
 
 
 /**
+ * All raw stat lines for the player, grouped by source.
+ * @summary Raw per-source stats for a player
+ */
+export const GetPlayerStatsParams = zod.object({
+  "playerId": zod.coerce.string()
+})
+
+export const GetPlayerStatsResponse = zod.object({
+  "sources": zod.array(zod.object({
+  "source": zod.string(),
+  "stats": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.number().nullish(),
+  "strValue": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "season": zod.number(),
+  "week": zod.number().nullish()
+}))
+}))
+})
+
+
+/**
+ * Searchable, filterable, paginated raw stat lines joined with player info.
+ * @summary Raw stats explorer
+ */
+export const ListStatsQueryParams = zod.object({
+  "source": zod.coerce.string().optional(),
+  "season": zod.coerce.number().optional(),
+  "team": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional(),
+  "key": zod.coerce.string().optional(),
+  "page": zod.coerce.number().optional(),
+  "pageSize": zod.coerce.number().optional()
+})
+
+export const ListStatsResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "playerId": zod.string(),
+  "playerName": zod.string(),
+  "team": zod.string().nullish(),
+  "position": zod.string().nullish(),
+  "source": zod.string(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.number().nullish(),
+  "strValue": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "season": zod.number(),
+  "week": zod.number().nullish()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
+ * @summary Available raw-stat filter options
+ */
+export const GetStatsMetaQueryParams = zod.object({
+  "season": zod.coerce.number().optional()
+})
+
+export const GetStatsMetaResponse = zod.object({
+  "sources": zod.array(zod.string()),
+  "keysBySource": zod.array(zod.object({
+  "source": zod.string(),
+  "keys": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+}))
+})),
+  "seasons": zod.array(zod.number()),
+  "teams": zod.array(zod.string())
+})
+
+
+/**
  * @summary List teams
  */
 export const ListTeamsQueryParams = zod.object({

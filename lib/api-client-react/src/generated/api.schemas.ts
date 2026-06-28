@@ -223,6 +223,78 @@ export interface SyncInput {
   conference?: string;
 }
 
+export interface PlayerStatItem {
+  key: string;
+  label: string;
+  /** @nullable */
+  value?: number | null;
+  /** @nullable */
+  strValue?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  category?: string | null;
+  season: number;
+  /** @nullable */
+  week?: number | null;
+}
+
+export interface SourceStats {
+  source: string;
+  stats: PlayerStatItem[];
+}
+
+export interface PlayerStatsResponse {
+  sources: SourceStats[];
+}
+
+export interface StatRow {
+  playerId: string;
+  playerName: string;
+  /** @nullable */
+  team?: string | null;
+  /** @nullable */
+  position?: string | null;
+  source: string;
+  key: string;
+  label: string;
+  /** @nullable */
+  value?: number | null;
+  /** @nullable */
+  strValue?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  category?: string | null;
+  season: number;
+  /** @nullable */
+  week?: number | null;
+}
+
+export interface StatsExplorerResponse {
+  rows: StatRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface StatKey {
+  key: string;
+  label: string;
+}
+
+export interface SourceKeys {
+  source: string;
+  keys: StatKey[];
+}
+
+export interface StatsMetaResponse {
+  sources: string[];
+  keysBySource: SourceKeys[];
+  seasons: number[];
+  teams: string[];
+}
+
 export type ListPlayersParams = {
 search?: string;
 team?: string;
@@ -254,6 +326,20 @@ export const ListPlayersOrder = {
   asc: 'asc',
   desc: 'desc',
 } as const;
+
+export type ListStatsParams = {
+source?: string;
+season?: number;
+team?: string;
+search?: string;
+key?: string;
+page?: number;
+pageSize?: number;
+};
+
+export type GetStatsMetaParams = {
+season?: number;
+};
 
 export type ListTeamsParams = {
 conference?: string;

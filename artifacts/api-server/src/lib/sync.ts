@@ -4,9 +4,15 @@ import {
   teamsTable,
   playersTable,
   playerGradesTable,
+  playerStatsTable,
   syncMetaTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import {
+  statsbombConfigured,
+  checkStatsbomb,
+  fetchPlayerRawStats,
+} from "./sources/statsbomb";
 import {
   telemetryConfigured,
   checkTelemetry,
@@ -308,7 +314,20 @@ async function performSync(
     teamsSynced = teamRows.length;
     playersSynced = resolved.length;
 
-    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, and ${gradeRows.length} grade lines for ${season}`;
+    // --- Raw stats from secondary sources (resilient; never fail the sync) ---
+    let statsSynced = 0;
+    if (statsbombConfigured()) {
+      try {
+        statsSynced = await ingestStatsbomb(season);
+      } catch (e) {
+        logger.error(
+          { err: (e as Error).message, season },
+          "StatsBomb raw-stats ingest failed (non-fatal)",
+        );
+      }
+    }
+
+    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, and ${statsSynced} StatsBomb stat lines for ${season}`;
 
     await db
       .update(syncMetaTable)
@@ -343,10 +362,140 @@ async function performSync(
   }
 }
 
+// --- StatsBomb raw-stats ingest -------------------------------------------
+
+// Normalize a player name for fuzzy matching across sources: lowercase, strip
+// accents and punctuation, drop common generational suffixes, collapse spaces.
+function normName(name: string): string {
+  let s = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  s = s.replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").replace(/\s+/g, " ").trim();
+  return s;
+}
+
+/**
+ * Pull StatsBomb raw stats for the season and write them into player_stats,
+ * matched to our existing players by (team, name). StatsBomb team names carry a
+ * mascot suffix (e.g. "Air Force Falcons"); we map each to one of our schools
+ * by longest case-insensitive prefix. Replaces the StatsBomb rows for the
+ * season atomically. Returns the number of stat lines written.
+ */
+async function ingestStatsbomb(season: number): Promise<number> {
+  progress = { phase: "Fetching StatsBomb raw stats", processed: 0, total: 0 };
+
+  const sbPlayers = await fetchPlayerRawStats(season, (done, total) => {
+    progress = { phase: "Fetching StatsBomb raw stats", processed: done, total };
+  });
+  if (sbPlayers.length === 0) return 0;
+
+  // Build lookup of our players for the season: school -> normName -> playerId.
+  const dbPlayers = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(sql`${playersTable.season} = ${season}`);
+
+  const schools = [
+    ...new Set(
+      dbPlayers.map((p) => p.team).filter((t): t is string => !!t),
+    ),
+  ];
+  const schoolsLower = schools.map((s) => ({ raw: s, lower: s.toLowerCase() }));
+  const bySchool = new Map<string, Map<string, string>>();
+  for (const p of dbPlayers) {
+    if (!p.team) continue;
+    let m = bySchool.get(p.team);
+    if (!m) {
+      m = new Map();
+      bySchool.set(p.team, m);
+    }
+    m.set(normName(p.playerName), p.playerId);
+  }
+
+  // Resolve each StatsBomb team name to our school via longest-prefix match.
+  const teamCache = new Map<string, string | null>();
+  function resolveSchool(sbName: string): string | null {
+    if (teamCache.has(sbName)) return teamCache.get(sbName) ?? null;
+    const lower = sbName.toLowerCase();
+    let best: string | null = null;
+    let bestLen = 0;
+    for (const s of schoolsLower) {
+      if (lower.startsWith(s.lower) && s.lower.length > bestLen) {
+        best = s.raw;
+        bestLen = s.lower.length;
+      }
+    }
+    teamCache.set(sbName, best);
+    return best;
+  }
+
+  const rows: (typeof playerStatsTable.$inferInsert)[] = [];
+  let matched = 0;
+  let unmatchedTeams = 0;
+  const unmatchedTeamNames = new Set<string>();
+  for (const sp of sbPlayers) {
+    const school = resolveSchool(sp.team.name);
+    if (!school) {
+      unmatchedTeams += 1;
+      unmatchedTeamNames.add(sp.team.name);
+      continue;
+    }
+    const playerId = bySchool.get(school)?.get(normName(sp.playerName));
+    if (!playerId) continue;
+    matched += 1;
+    for (const st of sp.stats) {
+      rows.push({
+        source: "statsbomb",
+        playerId,
+        season,
+        week: null,
+        category: st.category,
+        key: st.key,
+        label: st.label,
+        value: st.value,
+        strValue: null,
+        unit: st.unit,
+      });
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(playerStatsTable)
+      .where(
+        sql`${playerStatsTable.source} = 'statsbomb' AND ${playerStatsTable.season} = ${season}`,
+      );
+    for (const batch of chunk(rows, 1000)) {
+      await tx.insert(playerStatsTable).values(batch);
+    }
+  });
+
+  logger.info(
+    {
+      season,
+      sbPlayers: sbPlayers.length,
+      matched,
+      statLines: rows.length,
+      unmatchedTeamPlayers: unmatchedTeams,
+      sampleUnmatchedTeams: [...unmatchedTeamNames].slice(0, 10),
+    },
+    "StatsBomb raw-stats ingest complete",
+  );
+  return rows.length;
+}
+
 export async function getSourceStatuses(): Promise<
   { name: string; configured: boolean; ok: boolean | null; detail: string | null }[]
 > {
-  const [tele, pff, cfbd, tru] = await Promise.all([
+  const [tele, pff, cfbd, tru, sb] = await Promise.all([
     telemetryConfigured()
       ? checkTelemetry()
       : Promise.resolve({ ok: false, detail: "TELEMETRY_WIRE_SECRET not set" }),
@@ -359,6 +508,9 @@ export async function getSourceStatuses(): Promise<
     trumediaConfigured()
       ? checkTrumedia()
       : Promise.resolve({ ok: false, detail: "TruMedia credentials not set" }),
+    statsbombConfigured()
+      ? checkStatsbomb()
+      : Promise.resolve({ ok: false, detail: "STATSBOMB_API_KEY not set" }),
   ]);
   return [
     {
@@ -384,6 +536,12 @@ export async function getSourceStatuses(): Promise<
       configured: trumediaConfigured(),
       ok: trumediaConfigured() ? tru.ok : null,
       detail: tru.detail,
+    },
+    {
+      name: "Hudl StatsBomb (raw player stats)",
+      configured: statsbombConfigured(),
+      ok: statsbombConfigured() ? sb.ok : null,
+      detail: sb.detail,
     },
   ];
 }

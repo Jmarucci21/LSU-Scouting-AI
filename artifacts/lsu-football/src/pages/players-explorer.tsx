@@ -17,7 +17,7 @@ export function PlayersExplorer() {
   const debouncedSearch = useDebounce(search, 300);
   
   const [posGroup, setPosGroup] = useState<string | undefined>();
-  const [sort, setSort] = useState<ListPlayersSort>("war");
+  const [sort, setSort] = useState<ListPlayersSort>("snaps");
   const [order, setOrder] = useState<ListPlayersOrder>("desc");
   const [page, setPage] = useState(1);
   const pageSize = 50;
@@ -90,8 +90,6 @@ export function PlayersExplorer() {
                 <th className="p-4 font-semibold">Pos</th>
                 <th className="p-4 font-semibold">Team</th>
                 <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("snaps")}>Snaps {renderSortIcon("snaps")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("war")}>WAR {renderSortIcon("war")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("twar")}>TWAR {renderSortIcon("twar")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -102,13 +100,11 @@ export function PlayersExplorer() {
                     <td className="p-4"><Skeleton className="h-6 w-12" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-24" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-12 ml-auto" /></td>
-                    <td className="p-4"><Skeleton className="h-6 w-16 ml-auto" /></td>
-                    <td className="p-4"><Skeleton className="h-6 w-16 ml-auto" /></td>
                   </tr>
                 ))
               ) : listData?.players?.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">No players found matching your criteria.</td>
+                  <td colSpan={4} className="p-8 text-center text-muted-foreground">No players found matching your criteria.</td>
                 </tr>
               ) : (
                 listData?.players?.map((player) => (
@@ -124,8 +120,6 @@ export function PlayersExplorer() {
                     <td className="p-4 text-sm font-medium">{player.position}</td>
                     <td className="p-4 text-sm text-muted-foreground">{player.team}</td>
                     <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
-                    <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) ?? '-'}</td>
-                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.twar?.toFixed(2) ?? '-'}</td>
                   </tr>
                 ))
               )}

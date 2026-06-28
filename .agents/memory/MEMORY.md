@@ -2,3 +2,5 @@
 - [Data source auth flows](data-source-auth.md) — Telemetry/Hudl Wire is PRIMARY (Secret→Bearer token; enumerate via POST scores/player/find week=FC; find returns 201). PFF/TruMedia legacy.
 - [CFBD data model & sync mapping](cfbd-data-model.md) — LEGACY (Telemetry replaced it); CFBD war←avgPPA, playerValue←totalPPA, player_grades←stat lines; offense-only PPA.
 - [Sync scheduler](sync-scheduler.md) — automatic background sync runs on SYNC_SCHEDULE_HOURS cadence (default weekly, 0=off); startup catch-up logic; sync_meta.trigger distinguishes manual/scheduled.
+- [StatsBomb AmFB IQ API](statsbomb-amfb-iq.md) — GraphQL raw stats; endpoint+apikey auth, NCAA=1446, season "Y/Y+1", 3-group constraint (normal/ST/physical can't mix), match by name+team.
+- [Raw-stats pivot](raw-stats-pivot.md) — player_stats source-tagged table is the foundation; hide Telemetry WAR/TWAR in UI, surface raw stats via per-source tabs.

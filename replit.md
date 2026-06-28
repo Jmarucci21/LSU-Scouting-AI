@@ -1,6 +1,6 @@
 # LSU Football Database
 
-A scouting war-room web app for exploring advanced college-football player grades (WAR, TWAR, player value, position scores) across all of college football, with LSU as the home team. Data is synced from external football APIs into Postgres and surfaced through dashboards, a player explorer, and team pages.
+A scouting war-room web app for exploring RAW college-football player stats across all of college football, with LSU as the home team. Data is synced from external football APIs into Postgres and surfaced through dashboards, a player explorer, team pages, and a per-source stats explorer. The product is pivoting to a raw-stats foundation: Telemetry WAR/TWAR grades are kept in the DB but hidden in the UI, so the user can build their own position-grade models on top of raw stats later.
 
 ## Run & Operate
 
@@ -31,17 +31,19 @@ A scouting war-room web app for exploring advanced college-football player grade
 ## Architecture decisions
 
 - Contract-first: every route validates inputs/outputs with generated Zod schemas; the frontend uses generated hooks only.
-- Primary data source: Telemetry / Hudl Wire (`wire.telemetry.fm`) — players, advanced grades (WAR, TWAR, PAR, player value, tiers, per-category scores), and team metadata for ALL of college football. CFBD and TruMedia remain connected for source-status reachability only (not ingested). Sync writes into Postgres; the dashboard/lists read from the DB, never from the APIs directly.
-- Telemetry maps onto the schema: `players.war` ← war, `players.twar` ← twar, `players.par` ← par, `players.playerValue` ← player value (often null), plus tier/pct; each flattened grade metric becomes a `player_grades` row with a label/category from `GRADE_META`. The frontend now shows real "WAR"/"TWAR" columns.
+- Two data layers: (1) Telemetry / Hudl Wire (`wire.telemetry.fm`) provides players, team metadata, and grades (WAR/TWAR/etc.) for ALL of college football — grades are still synced into the DB but HIDDEN in the UI. (2) Raw per-source stats land in the `player_stats` table (source-tagged key/value/unit rows), surfaced via per-source tabs and the Stats Explorer. Hudl StatsBomb is the first raw-stats source (player tracking: speeds, get-off, acceleration). CFBD/TruMedia/PFF remain connected for source-status reachability; PFF NCAA feeds are entitlement-blocked (its tab shows a locked state).
+- Raw-stats source modules live in `artifacts/api-server/src/lib/sources/` and feed `ingest*` helpers in `sync.ts` that delete-by-source+season then insert into `player_stats`. StatsBomb matching maps StatsBomb team names to our DB schools (longest case-insensitive prefix) and player names (normalized); only FBS players match (DB is Telemetry/FBS only), unmatched rows are dropped + logged.
+- Telemetry maps onto the schema: `players.war` ← war, `players.twar` ← twar, `players.par` ← par, `players.playerValue` ← player value (often null), plus tier/pct; each flattened grade metric becomes a `player_grades` row with a label/category from `GRADE_META`. These grade columns/tables still populate but are NOT surfaced in the UI (raw-stats pivot) — the frontend shows snaps + raw stats instead.
 - `playerValue` is frequently null in Telemetry — rely on war/twar. Defensive/ST players DO have grades (unlike the old PPA source).
 - Sync pulls the full season: mint token → resolve latest week (FC = full-season cumulative) → enumerate graded players via `POST /ncaa/scores/player/find {season,week:"FC"}` (~11k ids, paginated 5000/page) → fetch each player's FC scores (concurrency pool) → resolve each distinct team slug via `GET /ncaa/teams` → transactional delete-by-season + insert. Runs in the background (~2 min for ~11k players); poll `/sync/status` for `running` + `progress`.
 - Single-resource GETs (`/players/{id}`, `/teams/{school}`) are path-param-only to avoid an Orval codegen name collision (see memory).
 
 ## Product
 
-- Dashboard with summary stats, top players, and position-group breakdowns (global season/team filter).
-- Player explorer: search, filter, sort, paginate; player detail with full grade breakdown.
-- Teams list and team detail with roster ranked by WAR.
+- Dashboard with player/team counts and position-group breakdown (global season/team filter; no WAR surfaced).
+- Player explorer: search, filter, sort by snaps/name, paginate; player detail with per-source raw-stats tabs (Hudl StatsBomb, Telemetry, CFBD, TruMedia, PFF — locked/empty state when a source has no data).
+- Teams list and team detail (Roster tab ranked by snaps + Raw Stats tab = team-scoped stats explorer).
+- Stats Explorer page (`/stats`): raw per-source stat lines across all of CFB, filter by source/stat-key/team/search, paginated.
 - Data admin page to view sync/source status and trigger a sync.
 
 ## User preferences
@@ -51,7 +53,8 @@ A scouting war-room web app for exploring advanced college-football player grade
 ## Gotchas
 
 - The app shows empty data until a sync runs; the sync needs `TELEMETRY_WIRE_SECRET` set. Default frontend season is 2025 — sync that season (or change the default in `use-global-filters.ts`) or the dashboard reads empty. Sync replaces by-season, so multiple seasons can coexist (2024 + 2025 are both loaded).
-- The sync runs in the background and takes ~2 min; the Data Sync page polls `/sync/status` and shows a live progress bar. Trigger via the page or `POST /api/sync {"season":YYYY}`.
+- The sync runs in the background; with StatsBomb raw stats it now takes ~5-7 min (Telemetry phase first, then per-team StatsBomb fetch over ~300 NCAA teams, then a DB write/match phase). The Data Sync page polls `/sync/status`; the StatsBomb phase reports `progress` as processed/total teams, then sits at 300/300 during the final write. Trigger via the page or `POST /api/sync {"season":YYYY}`.
+- StatsBomb must be fetched PER-TEAM (full-season unfiltered query errors server-side). A successful 2025 sync writes ~471k StatsBomb stat lines for ~FBS players. Needs `STATSBOMB_API_KEY`.
 - An automatic scheduler runs the background sync for the current season on a cadence (default weekly). Configure via `SYNC_SCHEDULE_HOURS` (set `0` to disable). On startup it catches up if the last successful sync is older than one interval, otherwise it waits out the remainder. Scheduled runs respect the "sync already running" guard. `sync_meta.trigger` records `manual` vs `scheduled`; `/sync/status` now returns `scheduler` info and a `history` array shown on the Data Sync page.
 - After changing API routes, restart the `artifacts/api-server: API Server` workflow — the server bundles on start.
 - Do not add query params to an operation that also has a path param (Orval TS2308 collision).

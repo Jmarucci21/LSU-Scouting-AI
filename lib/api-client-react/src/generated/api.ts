@@ -25,14 +25,19 @@ import type {
   FilterOptions,
   GetDashboardSummaryParams,
   GetPositionGroupsParams,
+  GetStatsMetaParams,
   GetTopPlayersParams,
   HealthStatus,
   ListPlayersParams,
+  ListStatsParams,
   ListTeamsParams,
   Player,
   PlayerDetail,
   PlayerListResponse,
+  PlayerStatsResponse,
   PositionGroupStat,
+  StatsExplorerResponse,
+  StatsMetaResponse,
   SyncInput,
   SyncStatus,
   Team,
@@ -294,6 +299,253 @@ export function useGetPlayer<TData = Awaited<ReturnType<typeof getPlayer>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPlayerQueryOptions(playerId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPlayerStatsUrl = (playerId: string,) => {
+
+
+
+
+  return `/api/players/${playerId}/stats`
+}
+
+/**
+ * All raw stat lines for the player, grouped by source.
+ * @summary Raw per-source stats for a player
+ */
+export const getPlayerStats = async (playerId: string, options?: RequestInit): Promise<PlayerStatsResponse> => {
+
+  return customFetch<PlayerStatsResponse>(getGetPlayerStatsUrl(playerId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlayerStatsQueryKey = (playerId: string,) => {
+    return [
+    `/api/players/${playerId}/stats`
+    ] as const;
+    }
+
+
+export const getGetPlayerStatsQueryOptions = <TData = Awaited<ReturnType<typeof getPlayerStats>>, TError = ErrorType<unknown>>(playerId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlayerStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlayerStatsQueryKey(playerId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlayerStats>>> = ({ signal }) => getPlayerStats(playerId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: playerId !== null && playerId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlayerStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlayerStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getPlayerStats>>>
+export type GetPlayerStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Raw per-source stats for a player
+ */
+
+export function useGetPlayerStats<TData = Awaited<ReturnType<typeof getPlayerStats>>, TError = ErrorType<unknown>>(
+ playerId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlayerStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlayerStatsQueryOptions(playerId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListStatsUrl = (params?: ListStatsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/stats?${stringifiedParams}` : `/api/stats`
+}
+
+/**
+ * Searchable, filterable, paginated raw stat lines joined with player info.
+ * @summary Raw stats explorer
+ */
+export const listStats = async (params?: ListStatsParams, options?: RequestInit): Promise<StatsExplorerResponse> => {
+
+  return customFetch<StatsExplorerResponse>(getListStatsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStatsQueryKey = (params?: ListStatsParams,) => {
+    return [
+    `/api/stats`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListStatsQueryOptions = <TData = Awaited<ReturnType<typeof listStats>>, TError = ErrorType<unknown>>(params?: ListStatsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStatsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStats>>> = ({ signal }) => listStats(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListStatsQueryResult = NonNullable<Awaited<ReturnType<typeof listStats>>>
+export type ListStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Raw stats explorer
+ */
+
+export function useListStats<TData = Awaited<ReturnType<typeof listStats>>, TError = ErrorType<unknown>>(
+ params?: ListStatsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListStatsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetStatsMetaUrl = (params?: GetStatsMetaParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/stats/meta?${stringifiedParams}` : `/api/stats/meta`
+}
+
+/**
+ * @summary Available raw-stat filter options
+ */
+export const getStatsMeta = async (params?: GetStatsMetaParams, options?: RequestInit): Promise<StatsMetaResponse> => {
+
+  return customFetch<StatsMetaResponse>(getGetStatsMetaUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStatsMetaQueryKey = (params?: GetStatsMetaParams,) => {
+    return [
+    `/api/stats/meta`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetStatsMetaQueryOptions = <TData = Awaited<ReturnType<typeof getStatsMeta>>, TError = ErrorType<unknown>>(params?: GetStatsMetaParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStatsMeta>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStatsMetaQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStatsMeta>>> = ({ signal }) => getStatsMeta(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStatsMeta>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStatsMetaQueryResult = NonNullable<Awaited<ReturnType<typeof getStatsMeta>>>
+export type GetStatsMetaQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Available raw-stat filter options
+ */
+
+export function useGetStatsMeta<TData = Awaited<ReturnType<typeof getStatsMeta>>, TError = ErrorType<unknown>>(
+ params?: GetStatsMetaParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStatsMeta>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStatsMetaQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

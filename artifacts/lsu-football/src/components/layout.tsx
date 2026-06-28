@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Database, Users, Shield, RefreshCw } from "lucide-react";
+import { Database, Users, Shield, RefreshCw, BarChart3 } from "lucide-react";
 import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { useGetFilters } from "@workspace/api-client-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +18,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/", label: "Dashboard", icon: Database },
     { href: "/players", label: "Players", icon: Users },
     { href: "/teams", label: "Teams", icon: Shield },
+    { href: "/stats", label: "Stats Explorer", icon: BarChart3 },
     { href: "/sync", label: "Data Sync", icon: RefreshCw },
   ];
 

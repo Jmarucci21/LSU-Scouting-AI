@@ -20,6 +20,8 @@ tags:
     description: Filter metadata
   - name: sync
     description: External data synchronization
+  - name: stats
+    description: Raw per-source player stats
 paths:
   /healthz:
     get:
@@ -88,6 +90,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /players/{playerId}/stats:
+    get:
+      operationId: getPlayerStats
+      tags: [players]
+      summary: Raw per-source stats for a player
+      description: All raw stat lines for the player, grouped by source.
+      parameters:
+        - { name: playerId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Player raw stats grouped by source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerStatsResponse"
+  /stats:
+    get:
+      operationId: listStats
+      tags: [stats]
+      summary: Raw stats explorer
+      description: Searchable, filterable, paginated raw stat lines joined with player info.
+      parameters:
+        - { name: source, in: query, required: false, schema: { type: string } }
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - { name: team, in: query, required: false, schema: { type: string } }
+        - { name: search, in: query, required: false, schema: { type: string } }
+        - { name: key, in: query, required: false, schema: { type: string } }
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Raw stats page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsExplorerResponse"
+  /stats/meta:
+    get:
+      operationId: getStatsMeta
+      tags: [stats]
+      summary: Available raw-stat filter options
+      parameters:
+        - { name: season, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Stats filter metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsMetaResponse"
   /teams:
     get:
       operationId: listTeams
@@ -447,3 +499,92 @@ components:
         season: { type: integer }
         team: { type: string }
         conference: { type: string }
+    PlayerStatItem:
+      type: object
+      required: [key, label, season]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        value: { type: ["number", "null"] }
+        strValue: { type: ["string", "null"] }
+        unit: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        season: { type: integer }
+        week: { type: ["integer", "null"] }
+    SourceStats:
+      type: object
+      required: [source, stats]
+      properties:
+        source: { type: string }
+        stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerStatItem"
+    PlayerStatsResponse:
+      type: object
+      required: [sources]
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStats"
+    StatRow:
+      type: object
+      required: [playerId, playerName, source, key, label, season]
+      properties:
+        playerId: { type: string }
+        playerName: { type: string }
+        team: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+        source: { type: string }
+        key: { type: string }
+        label: { type: string }
+        value: { type: ["number", "null"] }
+        strValue: { type: ["string", "null"] }
+        unit: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        season: { type: integer }
+        week: { type: ["integer", "null"] }
+    StatsExplorerResponse:
+      type: object
+      required: [rows, total, page, pageSize]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatRow"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    StatKey:
+      type: object
+      required: [key, label]
+      properties:
+        key: { type: string }
+        label: { type: string }
+    SourceKeys:
+      type: object
+      required: [source, keys]
+      properties:
+        source: { type: string }
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatKey"
+    StatsMetaResponse:
+      type: object
+      required: [sources, keysBySource, seasons, teams]
+      properties:
+        sources:
+          type: array
+          items: { type: string }
+        keysBySource:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceKeys"
+        seasons:
+          type: array
+          items: { type: integer }
+        teams:
+          type: array
+          items: { type: string }

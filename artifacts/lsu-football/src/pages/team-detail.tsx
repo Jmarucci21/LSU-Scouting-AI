@@ -1,7 +1,9 @@
 import { useRoute, Link } from "wouter";
 import { useGetTeam, getGetTeamQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatsExplorer } from "@/components/stats-explorer";
 import { ArrowLeft, Shield, MapPin, Users } from "lucide-react";
 
 export function TeamDetail() {
@@ -74,48 +76,64 @@ export function TeamDetail() {
         </div>
       </div>
 
-      <Card className="flex-1 overflow-hidden shadow-sm flex flex-col border-border">
-        <div className="p-4 border-b border-border bg-muted/30">
-          <h3 className="font-bold text-lg">Team Roster</h3>
-        </div>
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-muted/50 text-muted-foreground text-sm uppercase tracking-wider">
-                <th className="p-4 font-semibold">Player</th>
-                <th className="p-4 font-semibold">Pos</th>
-                <th className="p-4 font-semibold text-right">Snaps</th>
-                <th className="p-4 font-semibold text-right">WAR</th>
-                <th className="p-4 font-semibold text-right">TWAR</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {roster.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground">No players found for this team.</td>
-                </tr>
-              ) : (
-                roster.sort((a,b) => (b.war || 0) - (a.war || 0)).map((player) => (
-                  <tr key={`${player.playerId}-${player.season}`} className="hover:bg-muted/30 transition-colors group">
-                    <td className="p-4">
-                      <Link href={`/players/${player.playerId}`}>
-                        <div className="font-bold text-foreground group-hover:text-primary cursor-pointer">
-                          {player.playerName}
-                          <span className="text-xs text-muted-foreground font-normal ml-2">#{player.jersey || '-'}</span>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="p-4 text-sm font-medium">{player.position}</td>
-                    <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
-                    <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) ?? '-'}</td>
-                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.twar?.toFixed(2) ?? '-'}</td>
+      <Tabs defaultValue="roster" className="flex-1 flex flex-col min-h-0">
+        <TabsList className="w-fit">
+          <TabsTrigger value="roster">Roster</TabsTrigger>
+          <TabsTrigger value="stats">Raw Stats</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="roster" className="flex-1 min-h-0 mt-4">
+          <Card className="h-full overflow-hidden shadow-sm flex flex-col border-border">
+            <div className="p-4 border-b border-border bg-muted/30">
+              <h3 className="font-bold text-lg">Team Roster</h3>
+            </div>
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50 text-muted-foreground text-sm uppercase tracking-wider">
+                    <th className="p-4 font-semibold">Player</th>
+                    <th className="p-4 font-semibold">Pos</th>
+                    <th className="p-4 font-semibold text-right">Snaps</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {roster.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="p-8 text-center text-muted-foreground">No players found for this team.</td>
+                    </tr>
+                  ) : (
+                    roster
+                      .slice()
+                      .sort(
+                        (a, b) =>
+                          ((b.snapsNonSt || 0) + (b.snapsSt || 0)) -
+                          ((a.snapsNonSt || 0) + (a.snapsSt || 0)),
+                      )
+                      .map((player) => (
+                        <tr key={`${player.playerId}-${player.season}`} className="hover:bg-muted/30 transition-colors group">
+                          <td className="p-4">
+                            <Link href={`/players/${player.playerId}`}>
+                              <div className="font-bold text-foreground group-hover:text-primary cursor-pointer">
+                                {player.playerName}
+                                <span className="text-xs text-muted-foreground font-normal ml-2">#{player.jersey || '-'}</span>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="p-4 text-sm font-medium">{player.position}</td>
+                          <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="stats" className="flex-1 min-h-0 mt-4 flex flex-col">
+          <StatsExplorer fixedTeam={team.school} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

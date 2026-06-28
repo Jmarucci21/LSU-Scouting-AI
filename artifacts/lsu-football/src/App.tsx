@@ -8,6 +8,7 @@ import { PlayersExplorer } from "@/pages/players-explorer";
 import { PlayerDetail } from "@/pages/player-detail";
 import { Teams } from "@/pages/teams";
 import { TeamDetail } from "@/pages/team-detail";
+import { StatsExplorerPage } from "@/pages/stats-explorer";
 import { SyncAdmin } from "@/pages/sync-admin";
 import NotFound from "@/pages/not-found";
 
@@ -22,6 +23,7 @@ function Router() {
         <Route path="/players/:playerId" component={PlayerDetail} />
         <Route path="/teams" component={Teams} />
         <Route path="/teams/:school" component={TeamDetail} />
+        <Route path="/stats" component={StatsExplorerPage} />
         <Route path="/sync" component={SyncAdmin} />
         <Route component={NotFound} />
       </Switch>

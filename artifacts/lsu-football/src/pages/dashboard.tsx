@@ -1,16 +1,14 @@
 import { useGlobalFilters } from "@/hooks/use-global-filters";
-import { useGetDashboardSummary, useGetTopPlayers, useGetPositionGroups } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetPositionGroups } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
-import { Users, Shield, TrendingUp, Trophy } from "lucide-react";
+import { Users, Shield, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
 
 export function Dashboard() {
   const { season, team } = useGlobalFilters();
   
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary({ season, team });
-  const { data: topPlayers, isLoading: loadingTopPlayers } = useGetTopPlayers({ season, team, metric: 'war', limit: 10 });
   const { data: posGroups, isLoading: loadingPosGroups } = useGetPositionGroups({ season, team });
 
   return (
@@ -22,24 +20,11 @@ export function Dashboard() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard 
           title="Total Players" 
           value={summary?.totalPlayers} 
           icon={Users} 
-          loading={loadingSummary} 
-        />
-        <StatCard 
-          title="Avg WAR" 
-          value={summary?.avgWar?.toFixed(2)} 
-          icon={TrendingUp} 
-          loading={loadingSummary} 
-        />
-        <StatCard 
-          title="Top Player WAR" 
-          value={summary?.topPlayer?.war?.toFixed(2)} 
-          subtext={summary?.topPlayer?.playerName}
-          icon={Trophy} 
           loading={loadingSummary} 
         />
         <StatCard 
@@ -48,76 +33,45 @@ export function Dashboard() {
           icon={Shield} 
           loading={loadingSummary} 
         />
+        <Link href="/stats">
+          <StatCard 
+            title="Explore Raw Stats" 
+            value="Open" 
+            icon={BarChart3} 
+            loading={false} 
+          />
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 shadow-sm border-border">
-          <CardHeader>
-            <CardTitle>Top Players by WAR</CardTitle>
-            <CardDescription>Highest Wins Above Replacement for {season || "all time"}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loadingTopPlayers ? (
-              <Skeleton className="w-full h-[300px]" />
-            ) : topPlayers && topPlayers.length > 0 ? (
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topPlayers} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke="hsl(var(--border))" />
-                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                    <YAxis dataKey="playerName" type="category" width={100} stroke="hsl(var(--muted-foreground))" tick={{fontSize: 12}} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                      itemStyle={{ color: 'hsl(var(--foreground))' }}
-                      formatter={(value: number) => [value?.toFixed(2) || '-', 'WAR']}
-                    />
-                    <Bar dataKey="war" radius={[0, 4, 4, 0]}>
-                      {topPlayers.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill="hsl(var(--primary))" />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">No data available</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border-border">
-          <CardHeader>
-            <CardTitle>Position Groups</CardTitle>
-            <CardDescription>Average WAR by unit</CardDescription>
-          </CardHeader>
-          <CardContent className="px-0">
-            {loadingPosGroups ? (
-              <div className="px-6 space-y-4">
-                <Skeleton className="w-full h-12" />
-                <Skeleton className="w-full h-12" />
-                <Skeleton className="w-full h-12" />
-              </div>
-            ) : posGroups && posGroups.length > 0 ? (
-              <div className="divide-y border-t border-border">
-                {posGroups.slice().sort((a,b) => (b.avgWar || 0) - (a.avgWar || 0)).map((pg) => (
-                  <div key={pg.posGroup} className="flex justify-between items-center py-3 px-6 hover:bg-muted/50 transition-colors">
-                    <div>
-                      <div className="font-semibold">{pg.posGroup}</div>
-                      <div className="text-xs text-muted-foreground">{pg.count} players</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-primary">{pg.avgWar?.toFixed(2) || '-'}</div>
-                      <div className="text-xs text-muted-foreground">Avg WAR</div>
-                    </div>
+      <Card className="shadow-sm border-border">
+        <CardHeader>
+          <CardTitle>Position Groups</CardTitle>
+          <CardDescription>Player counts by unit</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          {loadingPosGroups ? (
+            <div className="px-6 space-y-4">
+              <Skeleton className="w-full h-12" />
+              <Skeleton className="w-full h-12" />
+              <Skeleton className="w-full h-12" />
+            </div>
+          ) : posGroups && posGroups.length > 0 ? (
+            <div className="divide-y border-t border-border">
+              {posGroups.slice().sort((a,b) => (b.count || 0) - (a.count || 0)).map((pg) => (
+                <div key={pg.posGroup} className="flex justify-between items-center py-3 px-6 hover:bg-muted/50 transition-colors">
+                  <div className="font-semibold">{pg.posGroup}</div>
+                  <div className="text-right">
+                    <div className="font-bold text-primary">{pg.count}</div>
+                    <div className="text-xs text-muted-foreground">players</div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center text-muted-foreground">No data available</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-muted-foreground">No data available</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
