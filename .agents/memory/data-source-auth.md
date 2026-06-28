@@ -11,6 +11,8 @@ description: How PFF and TruMedia APIs authenticate, and the known permission/da
 - Rate limited: handle HTTP 429.
 - Endidpoint shape: `/v1/{category}/{league}/...` e.g. `/v1/analytics/projections/ncaa/{year}/{offense|defense}`, `/v1/grades/season/ncaa/{year}/{offense|defense}`, `/v1/master/ncaa/teams`. Leagues list at `/v1/leagues` (NCAA = id 2).
 - **Access is permission-gated per feed.** As of this work, the LSU key authenticates and can read `/v1/leagues`, but grades/master/projections feeds all return `401 {"errors":{"detail":"Unauthorized"}}` (vs `404 "Not found"` for wrong paths). 401 here = no permission, NOT a token bug. Unlocking requires PFF to grant API permissions for those feeds; cannot be fixed in code. The full OpenAPI/Swagger spec is behind an Auth0 browser login (auth.pff.com) and not machine-fetchable.
+- A **second/replacement PFF API key** (stored as secret `PFF_API_KEY`) was tested 2026-06-28: same result — `/auth/login` 200 + valid jwt, `/v1/leagues` 200, but `/v1/master/ncaa/teams`, `/v1/grades/season/ncaa/{year}/{offense|defense}`, and `/v1/analytics/projections/ncaa/{year}/offense` all still 401. Confirms the block is account/feed-entitlement, not key-specific. Don't re-test feeds until PFF confirms they've enabled entitlements.
+- PFF web portal **username/password are NOT used by the app** — the API authenticates with the key alone (x-api-key→jwt→Bearer). Those creds are only for the docs/Swagger Auth0 portal; do not store them as app secrets.
 
 # TruMedia
 
