@@ -163,7 +163,24 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
               ) : data?.rows?.length === 0 ? (
                 <tr>
                   <td colSpan={fixedTeam ? 5 : 6} className="p-8 text-center text-muted-foreground">
-                    No stats found. Adjust filters or run a data sync.
+                    {search ? (
+                      <>
+                        No stats found for &ldquo;{search}&rdquo; in the{" "}
+                        <span className="font-semibold text-foreground">
+                          {season}
+                        </span>{" "}
+                        season. That player may not have played this season &mdash;
+                        try changing the Season filter on the left.
+                      </>
+                    ) : (
+                      <>
+                        No stats found for the{" "}
+                        <span className="font-semibold text-foreground">
+                          {season}
+                        </span>{" "}
+                        season. Adjust the filters or run a data sync.
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (
