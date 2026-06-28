@@ -162,6 +162,135 @@ export async function fetchRecruiting(season: number): Promise<RecruitRow[]> {
   return rows;
 }
 
+// --- cfbfastR-style raw stats (PPA / EPA-equivalent + season box stats) -----
+
+export type CfbdRawStat = {
+  category: string;
+  key: string;
+  label: string;
+  value: number | null;
+  strValue: string | null;
+  unit: string | null;
+};
+
+export type CfbdRawPlayer = {
+  playerName: string;
+  team: string | null;
+  position: string | null;
+  stats: CfbdRawStat[];
+};
+
+// "puntReturns" -> "Punt Returns", "passing" -> "Passing"
+function humanize(s: string): string {
+  const spaced = s
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  return spaced
+    .split(/\s+/)
+    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+const PPA_BREAKDOWN: { field: keyof PpaBreakdown; label: string }[] = [
+  { field: "all", label: "All" },
+  { field: "pass", label: "Pass" },
+  { field: "rush", label: "Rush" },
+  { field: "firstDown", label: "1st Down" },
+  { field: "secondDown", label: "2nd Down" },
+  { field: "thirdDown", label: "3rd Down" },
+  { field: "standardDowns", label: "Standard Downs" },
+  { field: "passingDowns", label: "Passing Downs" },
+];
+
+/**
+ * Pull cfbfastR-style raw stats for the season from CFBD: per-player PPA
+ * (Predicted Points Added, CFBD's EPA-equivalent and the headline cfbfastR
+ * metric) broken down by play type/down, plus season box-score stat lines.
+ * Merged per CFBD athlete id and returned normalized for ingest. Two CFBD
+ * requests per season (no conference filter = full FBS).
+ */
+export async function fetchCfbdRawStats(
+  season: number,
+): Promise<CfbdRawPlayer[]> {
+  const [ppa, seasonStats] = await Promise.all([
+    fetchPlayerPpa(season).catch((e) => {
+      logger.warn(
+        { err: (e as Error).message, season },
+        "CFBD PPA fetch failed",
+      );
+      return [] as PpaRow[];
+    }),
+    fetchPlayerSeasonStats(season).catch((e) => {
+      logger.warn(
+        { err: (e as Error).message, season },
+        "CFBD season stats fetch failed",
+      );
+      return [] as PlayerStatRow[];
+    }),
+  ]);
+
+  const byId = new Map<string, CfbdRawPlayer>();
+  const get = (
+    id: string,
+    name: string,
+    team: string | null,
+    position: string | null,
+  ): CfbdRawPlayer => {
+    const k = id || `${name}|${team ?? ""}`;
+    let p = byId.get(k);
+    if (!p) {
+      p = { playerName: name, team, position, stats: [] };
+      byId.set(k, p);
+    }
+    return p;
+  };
+
+  for (const r of ppa) {
+    const p = get(r.id, r.name, r.team, r.position);
+    const groups: { src: PpaBreakdown | null; cat: string; keyP: string }[] = [
+      { src: r.averagePPA, cat: "PPA (Average)", keyP: "ppaAvg" },
+      { src: r.totalPPA, cat: "PPA (Total)", keyP: "ppaTotal" },
+    ];
+    for (const g of groups) {
+      if (!g.src) continue;
+      for (const b of PPA_BREAKDOWN) {
+        const v = g.src[b.field];
+        if (v == null) continue;
+        p.stats.push({
+          category: g.cat,
+          key: `${g.keyP}_${b.field}`,
+          label: `${g.cat === "PPA (Total)" ? "Total" : "Avg"} PPA (${b.label})`,
+          value: v,
+          strValue: null,
+          unit: null,
+        });
+      }
+    }
+  }
+
+  for (const r of seasonStats) {
+    const p = get(r.playerId, r.player, r.team, r.position);
+    const num = Number(r.stat);
+    const finite = Number.isFinite(num);
+    p.stats.push({
+      category: humanize(r.category),
+      key: `${r.category}_${r.statType}`,
+      label: `${humanize(r.category)} ${r.statType}`,
+      value: finite ? num : null,
+      strValue: finite ? null : r.stat,
+      unit: null,
+    });
+  }
+
+  const players = [...byId.values()].filter((p) => p.stats.length > 0);
+  logger.info(
+    { season, players: players.length, ppa: ppa.length, seasonStats: seasonStats.length },
+    "Built CFBD raw stats",
+  );
+  return players;
+}
+
 export async function checkCfbd(): Promise<{ ok: boolean; detail: string }> {
   if (!cfbdConfigured()) return { ok: false, detail: "CFBD_API_KEY not set" };
   try {

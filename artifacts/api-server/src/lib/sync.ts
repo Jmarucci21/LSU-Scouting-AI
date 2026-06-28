@@ -25,7 +25,7 @@ import {
   type TelemetryPlayer,
   type TelemetryTeam,
 } from "./sources/telemetry";
-import { cfbdConfigured, checkCfbd } from "./sources/cfbd";
+import { cfbdConfigured, checkCfbd, fetchCfbdRawStats } from "./sources/cfbd";
 import { trumediaConfigured, checkTrumedia } from "./sources/trumedia";
 import { pffConfigured, checkPff } from "./sources/pff";
 
@@ -327,7 +327,19 @@ async function performSync(
       }
     }
 
-    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, and ${statsSynced} StatsBomb stat lines for ${season}`;
+    let cfbdSynced = 0;
+    if (cfbdConfigured()) {
+      try {
+        cfbdSynced = await ingestCfbd(season);
+      } catch (e) {
+        logger.error(
+          { err: (e as Error).message, season },
+          "CFBD raw-stats ingest failed (non-fatal)",
+        );
+      }
+    }
+
+    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${statsSynced} StatsBomb stat lines, and ${cfbdSynced} CFBD stat lines for ${season}`;
 
     await db
       .update(syncMetaTable)
@@ -492,6 +504,115 @@ async function ingestStatsbomb(season: number): Promise<number> {
   return rows.length;
 }
 
+// --- CFBD (cfbfastR-style) raw-stats ingest -------------------------------
+
+/**
+ * Pull cfbfastR-style raw stats from CFBD (PPA / EPA-equivalent + season box
+ * stats) and write them into player_stats, matched to our existing players by
+ * (school, name). CFBD team names are clean school strings, so we match the
+ * normalized school exactly, falling back to longest-prefix. Replaces the CFBD
+ * rows for the season atomically. Returns the number of stat lines written.
+ */
+async function ingestCfbd(season: number): Promise<number> {
+  progress = { phase: "Fetching CFBD raw stats", processed: 0, total: 0 };
+
+  const cfbdPlayers = await fetchCfbdRawStats(season);
+  if (cfbdPlayers.length === 0) return 0;
+
+  const dbPlayers = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(sql`${playersTable.season} = ${season}`);
+
+  // school(normName) -> normName(player) -> playerId
+  const bySchool = new Map<string, Map<string, string>>();
+  for (const p of dbPlayers) {
+    if (!p.team) continue;
+    const ns = normName(p.team);
+    let m = bySchool.get(ns);
+    if (!m) {
+      m = new Map();
+      bySchool.set(ns, m);
+    }
+    m.set(normName(p.playerName), p.playerId);
+  }
+  const schoolKeys = [...bySchool.keys()];
+
+  const teamCache = new Map<string, string | null>();
+  function resolveSchool(cfbdTeam: string): string | null {
+    if (teamCache.has(cfbdTeam)) return teamCache.get(cfbdTeam) ?? null;
+    const ns = normName(cfbdTeam);
+    let best: string | null = bySchool.has(ns) ? ns : null;
+    if (!best) {
+      let bestLen = 0;
+      for (const s of schoolKeys) {
+        if ((ns.startsWith(s) || s.startsWith(ns)) && s.length > bestLen) {
+          best = s;
+          bestLen = s.length;
+        }
+      }
+    }
+    teamCache.set(cfbdTeam, best);
+    return best;
+  }
+
+  const rows: (typeof playerStatsTable.$inferInsert)[] = [];
+  let matched = 0;
+  const unmatchedTeamNames = new Set<string>();
+  for (const cp of cfbdPlayers) {
+    if (!cp.team) continue;
+    const schoolKey = resolveSchool(cp.team);
+    if (!schoolKey) {
+      unmatchedTeamNames.add(cp.team);
+      continue;
+    }
+    const playerId = bySchool.get(schoolKey)?.get(normName(cp.playerName));
+    if (!playerId) continue;
+    matched += 1;
+    for (const st of cp.stats) {
+      rows.push({
+        source: "cfbd",
+        playerId,
+        season,
+        week: null,
+        category: st.category,
+        key: st.key,
+        label: st.label,
+        value: st.value,
+        strValue: st.strValue,
+        unit: st.unit,
+      });
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(playerStatsTable)
+      .where(
+        sql`${playerStatsTable.source} = 'cfbd' AND ${playerStatsTable.season} = ${season}`,
+      );
+    for (const batch of chunk(rows, 1000)) {
+      await tx.insert(playerStatsTable).values(batch);
+    }
+  });
+
+  logger.info(
+    {
+      season,
+      cfbdPlayers: cfbdPlayers.length,
+      matched,
+      statLines: rows.length,
+      sampleUnmatchedTeams: [...unmatchedTeamNames].slice(0, 10),
+    },
+    "CFBD raw-stats ingest complete",
+  );
+  return rows.length;
+}
+
 export async function getSourceStatuses(): Promise<
   { name: string; configured: boolean; ok: boolean | null; detail: string | null }[]
 > {
@@ -526,7 +647,7 @@ export async function getSourceStatuses(): Promise<
       detail: pff.detail,
     },
     {
-      name: "College Football Data (legacy, not used for sync)",
+      name: "College Football Data (CFBD raw stats: PPA + season box)",
       configured: cfbdConfigured(),
       ok: cfbdConfigured() ? cfbd.ok : null,
       detail: cfbd.detail,

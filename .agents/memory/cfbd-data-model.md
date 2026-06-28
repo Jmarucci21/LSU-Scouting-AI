@@ -1,34 +1,38 @@
 ---
-name: CFBD data model & sync mapping
-description: How CollegeFootballData maps onto this app's schema, request economy, and the PPA limitation
+name: CFBD data model & raw-stats ingest
+description: How CollegeFootballData is used now (raw-stats source into player_stats), request economy, and the PPA offense-only limitation
 ---
 
-# CFBD as the primary data source
+# CFBD's current role
 
-The data layer is CFBD-primary (Telemetry was dropped). TruMedia is wired only for a source-status check; it is not yet used to populate data (different player-ID space than CFBD/ESPN, so reconciliation is non-trivial).
+CFBD is NOT primary (Telemetry is — it provides players/teams/grades). CFBD is the
+second ingested RAW-STATS source (after StatsBomb), feeding the `player_stats`
+table under source tag `cfbd`. It is cfbfastR-style data built in Node (no R):
+cfbfastR's underlying data IS CFBD, so the R package is unnecessary.
 
-## Schema reuse (decision)
+**History:** CFBD was once the primary source mapped onto `players.war`←avgPPA /
+`players.playerValue`←totalPPA / `player_grades`←stat lines. That mapping is GONE.
+Do not reintroduce it — raw stats go to `player_stats`, not the grade columns.
 
-The original schema was grades/WAR-oriented. Rather than migrate it, CFBD data is mapped onto the existing columns:
-- `players.war`  ← CFBD `averagePPA.all` (PPA per play)
-- `players.playerValue` ← CFBD `totalPPA.all` (cumulative PPA)
-- `players.twar` / `par` / `playerValuePct` / `playerTier` ← null (no CFBD equivalent)
-- `player_grades` rows ← one per CFBD season stat line. key=`<category>.<statType>`, plus PPA breakdowns with category "PPA per play" / "PPA total".
+## What gets ingested (decision)
 
-**Why:** avoids a schema migration and keeps the contract/codegen/frontend stable. The frontend relabels WAR→"PPA/play" and Value→"Total PPA" at display time only; the API field names stay `war`/`playerValue`.
+`fetchCfbdRawStats(season)` merges two CFBD endpoints per athlete id:
+- `/ppa/players/season` → PPA (Predicted Points Added, CFBD's EPA-equivalent and
+  the headline cfbfastR metric). Flattened into "PPA (Average)" + "PPA (Total)"
+  categories, broken down by all/pass/rush/1st-3rd-down/standard/passing downs.
+- `/stats/player/season` → season box-score stat lines (category = passing/rushing/
+  defensive/interceptions/etc., key = `<category>_<statType>`).
+Matched to DB players by normalized school+name (CFBD team names are clean schools,
+so exact normalized match, longest-prefix fallback). A 2025 sync = ~111k stat lines.
 
 ## Request economy (free tier = 1,000 req/month — be frugal)
 
-A full season sync is ~3 CFBD calls total, NOT per-team:
-- `/teams/fbs?year=` — all FBS teams (one call)
-- `/stats/player/season?year=` — ALL FBS player stat lines (one call, ~130k rows)
-- `/ppa/players/season?year=` — all player PPA (one call, ~4–5k rows)
-Optional `&conference=` narrows any of them. `/recruiting/players?year=` is one call (not yet ingested).
+The CFBD raw-stats ingest is just 2 calls/season (ppa + season stats, no conference
+filter = full FBS). `/teams/fbs` and `/recruiting/players` exist but aren't part of
+the raw-stats ingest.
 
 ## PPA is offense-only (intentional, not a bug)
 
-CFBD PPA only covers offensive skill players (QB/RB/WR/TE). Defensive and special-teams players have `war`/`playerValue` = null and render as "-". Do not fabricate a value metric for them; their full stat lines still appear in `player_grades`.
-
-## Sync integrity
-
-Player upsert + grade delete/insert for a season run inside a single `db.transaction` so a mid-sync failure can't leave players with grades deleted-but-not-restored. Sync is request-frugal but writes ~130k–210k grade rows/season; inserts are batched (players 500, grades 1000, IN-delete 500).
+CFBD PPA only covers offensive skill players (QB/RB/WR/TE). Defensive/ST players get
+NO PPA rows, but they DO get box-score defensive/interception stat lines, so their
+CFBD tab is still populated.
