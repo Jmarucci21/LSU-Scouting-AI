@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
-import { useListStats, useGetStatsMeta } from "@workspace/api-client-react";
-import type { StatRow, StatsMetaResponse } from "@workspace/api-client-react";
+import {
+  useListStats,
+  useGetStatsMeta,
+  useListCareerStats,
+  getListStatsQueryKey,
+  getListCareerStatsQueryKey,
+} from "@workspace/api-client-react";
+import type {
+  StatRow,
+  StatsMetaResponse,
+  CareerStatRow,
+} from "@workspace/api-client-react";
 import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Card } from "@/components/ui/card";
@@ -8,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSelect } from "@/components/multi-select";
-import { Search } from "lucide-react";
+import { Search, ChevronRight, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -50,18 +60,38 @@ function formatValue(row: StatRow): string {
   return row.unit ? `${formatted} ${row.unit}` : formatted;
 }
 
+function formatNumber(v: number | null | undefined, unit?: string | null): string {
+  if (v == null) return "-";
+  const formatted = Number.isInteger(v) ? v.toString() : v.toFixed(2);
+  return unit ? `${formatted} ${unit}` : formatted;
+}
+
+function seasonSpan(row: CareerStatRow): string {
+  return row.firstSeason === row.lastSeason
+    ? `${row.firstSeason}`
+    : `${row.firstSeason}\u2013${row.lastSeason}`;
+}
+
 export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const { season } = useGlobalFilters();
+  // Career view is cross-team by nature (it merges a player's seasons across
+  // every school), so it is only offered in the global explorer, never on a
+  // team-scoped page.
+  const careerAllowed = !fixedTeam;
+  const [mode, setMode] = useState<"season" | "career">("season");
+  const isCareer = careerAllowed && mode === "career";
+
   const [sources, setSources] = useState<string[]>([]);
   const [statKeys, setStatKeys] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const pageSize = 50;
 
   const { data: meta } = useGetStatsMeta({ season });
 
-  const { data, isLoading } = useListStats({
+  const seasonParams = {
     source: sources.length ? sources.join(",") : undefined,
     season,
     team: fixedTeam,
@@ -69,7 +99,37 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
     key: statKeys.length ? statKeys.join(",") : undefined,
     page,
     pageSize,
-  });
+  };
+  const careerParams = {
+    source: sources.length ? sources.join(",") : undefined,
+    search: debouncedSearch || undefined,
+    key: statKeys.length ? statKeys.join(",") : undefined,
+    page,
+    pageSize,
+  };
+
+  const { data: seasonData, isLoading: seasonLoading } = useListStats(
+    seasonParams,
+    {
+      query: {
+        enabled: !isCareer,
+        queryKey: getListStatsQueryKey(seasonParams),
+      },
+    },
+  );
+
+  const { data: careerData, isLoading: careerLoading } = useListCareerStats(
+    careerParams,
+    {
+      query: {
+        enabled: isCareer,
+        queryKey: getListCareerStatsQueryKey(careerParams),
+      },
+    },
+  );
+
+  const isLoading = isCareer ? careerLoading : seasonLoading;
+  const total = isCareer ? (careerData?.total ?? 0) : (seasonData?.total ?? 0);
 
   const sourceOptions = useMemo(
     () =>
@@ -84,9 +144,58 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
     [meta, sources],
   );
 
+  const resetPaging = () => {
+    setPage(1);
+    setExpanded(new Set());
+  };
+
+  const toggleRow = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const colCount = isCareer ? 6 : fixedTeam ? 5 : 6;
+
   return (
     <div className="space-y-4 flex flex-col flex-1 min-h-0">
       <div className="flex flex-col md:flex-row gap-4 items-center bg-card p-4 rounded-lg border border-border shadow-sm">
+        {careerAllowed && (
+          <div className="inline-flex rounded-md border border-border overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("season");
+                resetPaging();
+              }}
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                !isCareer
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              By Season
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("career");
+                resetPaging();
+              }}
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                isCareer
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Career
+            </button>
+          </div>
+        )}
+
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -94,7 +203,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
+              resetPaging();
             }}
             className="pl-9 bg-background"
           />
@@ -111,7 +220,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
               // the results.
               const valid = new Set(keysForSources(meta, v).map((k) => k.value));
               setStatKeys((prev) => prev.filter((k) => valid.has(k)));
-              setPage(1);
+              resetPaging();
             }}
             placeholder="All Sources"
             searchPlaceholder="Search sources..."
@@ -125,7 +234,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
             selected={statKeys}
             onChange={(v) => {
               setStatKeys(v);
-              setPage(1);
+              resetPaging();
             }}
             placeholder="All Stats"
             searchPlaceholder="Search stats..."
@@ -140,12 +249,25 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/50 text-muted-foreground text-sm uppercase tracking-wider">
-                <th className="p-4 font-semibold">Player</th>
-                <th className="p-4 font-semibold">Pos</th>
-                {!fixedTeam && <th className="p-4 font-semibold">Team</th>}
-                <th className="p-4 font-semibold">Source</th>
-                <th className="p-4 font-semibold">Stat</th>
-                <th className="p-4 font-semibold text-right">Value</th>
+                {isCareer ? (
+                  <>
+                    <th className="p-4 font-semibold">Player</th>
+                    <th className="p-4 font-semibold">Team</th>
+                    <th className="p-4 font-semibold">Source</th>
+                    <th className="p-4 font-semibold">Stat</th>
+                    <th className="p-4 font-semibold">Seasons</th>
+                    <th className="p-4 font-semibold text-right">Career Total</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="p-4 font-semibold">Player</th>
+                    <th className="p-4 font-semibold">Pos</th>
+                    {!fixedTeam && <th className="p-4 font-semibold">Team</th>}
+                    <th className="p-4 font-semibold">Source</th>
+                    <th className="p-4 font-semibold">Stat</th>
+                    <th className="p-4 font-semibold text-right">Value</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -154,15 +276,48 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                   <tr key={i}>
                     <td className="p-4"><Skeleton className="h-6 w-32" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-12" /></td>
-                    {!fixedTeam && <td className="p-4"><Skeleton className="h-6 w-24" /></td>}
+                    {!isCareer && !fixedTeam && <td className="p-4"><Skeleton className="h-6 w-24" /></td>}
                     <td className="p-4"><Skeleton className="h-6 w-20" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-28" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-12 ml-auto" /></td>
                   </tr>
                 ))
-              ) : data?.rows?.length === 0 ? (
+              ) : isCareer ? (
+                careerData?.rows?.length === 0 ? (
+                  <tr>
+                    <td colSpan={colCount} className="p-8 text-center text-muted-foreground">
+                      {search ? (
+                        <>
+                          No career stats found for &ldquo;{search}&rdquo;. Try a
+                          different name, or run a data sync to populate career
+                          totals.
+                        </>
+                      ) : (
+                        <>
+                          No career stats yet. Career totals are built during a
+                          data sync &mdash; run one to populate them.
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  careerData?.rows?.map((row, i) => {
+                    const id = `${row.latestPlayerId}-${row.source}-${row.key}-${i}`;
+                    const isOpen = expanded.has(id);
+                    return (
+                      <CareerRows
+                        key={id}
+                        id={id}
+                        row={row}
+                        isOpen={isOpen}
+                        onToggle={() => toggleRow(id)}
+                      />
+                    );
+                  })
+                )
+              ) : seasonData?.rows?.length === 0 ? (
                 <tr>
-                  <td colSpan={fixedTeam ? 5 : 6} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={colCount} className="p-8 text-center text-muted-foreground">
                     {search ? (
                       <>
                         No stats found for &ldquo;{search}&rdquo; in the{" "}
@@ -184,7 +339,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                   </td>
                 </tr>
               ) : (
-                data?.rows?.map((row, i) => (
+                seasonData?.rows?.map((row, i) => (
                   <tr
                     key={`${row.playerId}-${row.source}-${row.key}-${i}`}
                     className="hover:bg-muted/30 transition-colors group"
@@ -210,7 +365,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
           </table>
         </div>
 
-        {data && data.total > 0 && (
+        {total > 0 && (
           <div className="p-4 border-t border-border flex items-center justify-between bg-card text-sm text-muted-foreground">
             <div>
               Showing{" "}
@@ -219,24 +374,30 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
               </span>{" "}
               to{" "}
               <span className="font-medium text-foreground">
-                {Math.min(page * pageSize, data.total)}
+                {Math.min(page * pageSize, total)}
               </span>{" "}
-              of <span className="font-medium text-foreground">{data.total}</span>
+              of <span className="font-medium text-foreground">{total}</span>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
+                onClick={() => {
+                  setPage((p) => p - 1);
+                  setExpanded(new Set());
+                }}
               >
                 Previous
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page * pageSize >= data.total}
-                onClick={() => setPage((p) => p + 1)}
+                disabled={page * pageSize >= total}
+                onClick={() => {
+                  setPage((p) => p + 1);
+                  setExpanded(new Set());
+                }}
               >
                 Next
               </Button>
@@ -245,5 +406,86 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
         )}
       </Card>
     </div>
+  );
+}
+
+function CareerRows({
+  id,
+  row,
+  isOpen,
+  onToggle,
+}: {
+  id: string;
+  row: CareerStatRow;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr
+        className="hover:bg-muted/30 transition-colors group cursor-pointer"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <td className="p-4">
+          <div className="flex items-center gap-2">
+            {isOpen ? (
+              <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            )}
+            <Link href={`/players/${row.latestPlayerId}`}>
+              <span
+                className="font-bold text-foreground group-hover:text-primary cursor-pointer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {row.displayName}
+              </span>
+            </Link>
+          </div>
+        </td>
+        <td className="p-4 text-sm text-muted-foreground">{row.latestTeam || "-"}</td>
+        <td className="p-4 text-sm text-muted-foreground">{sourceLabel(row.source)}</td>
+        <td className="p-4 text-sm">{row.label}</td>
+        <td className="p-4 text-sm">
+          <span className="font-medium text-foreground">{seasonSpan(row)}</span>
+          <span className="text-muted-foreground">
+            {" "}
+            ({row.seasonsCount} {row.seasonsCount === 1 ? "season" : "seasons"})
+          </span>
+        </td>
+        <td className="p-4 text-sm font-bold text-right">
+          {formatNumber(row.total, row.unit)}
+        </td>
+      </tr>
+      {isOpen && (
+        <tr className="bg-muted/20">
+          <td colSpan={6} className="px-4 pb-4 pt-0">
+            <div className="ml-6 border-l-2 border-primary/40 pl-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-muted-foreground uppercase text-xs tracking-wider">
+                    <th className="py-2 text-left font-semibold">Season</th>
+                    <th className="py-2 text-left font-semibold">Team</th>
+                    <th className="py-2 text-right font-semibold">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {row.breakdown.map((b) => (
+                    <tr key={`${id}-${b.season}-${b.team ?? ""}`}>
+                      <td className="py-1.5 font-medium text-foreground">{b.season}</td>
+                      <td className="py-1.5 text-muted-foreground">{b.team || "-"}</td>
+                      <td className="py-1.5 text-right font-semibold text-foreground">
+                        {formatNumber(b.value, row.unit)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

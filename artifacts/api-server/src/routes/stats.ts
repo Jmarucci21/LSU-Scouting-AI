@@ -1,14 +1,36 @@
 import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
-import { db, playersTable, playerStatsTable } from "@workspace/db";
+import {
+  db,
+  playersTable,
+  playerStatsTable,
+  playerCareerStatsTable,
+} from "@workspace/db";
 import {
   GetPlayerStatsParams,
   GetPlayerStatsResponse,
   ListStatsQueryParams,
   ListStatsResponse,
+  ListCareerStatsQueryParams,
+  ListCareerStatsResponse,
   GetStatsMetaQueryParams,
   GetStatsMetaResponse,
 } from "@workspace/api-zod";
+
+// Parse a single value or comma-separated list (the explorer dropdowns are
+// multi-select), deduped and trimmed.
+function parseList(v?: string): string[] {
+  return v
+    ? [
+        ...new Set(
+          v
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+      ]
+    : [];
+}
 
 const router: IRouter = Router();
 
@@ -108,17 +130,6 @@ router.get("/stats", async (req, res): Promise<void> => {
 
   // `source` and `key` accept a single value or a comma-separated list
   // (the explorer dropdowns are multi-select).
-  const parseList = (v?: string) =>
-    v
-      ? [
-          ...new Set(
-            v
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean),
-          ),
-        ]
-      : [];
   const sourceList = parseList(source);
   const keyList = parseList(key);
 
@@ -204,6 +215,105 @@ router.get("/stats", async (req, res): Promise<void> => {
         category: r.category ?? null,
         season: r.season,
         week: r.week ?? null,
+      })),
+      total: count,
+      page: currentPage,
+      pageSize: limit,
+    }),
+  );
+});
+
+// Career stats explorer: paginated career totals (read from the precomputed
+// player_career_stats table — see buildCareerStats in sync.ts). Identity is
+// name-based, so a row spans every season a player played for that source.
+router.get("/stats/career", async (req, res): Promise<void> => {
+  const parsed = ListCareerStatsQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { source, search, key, page, pageSize } = parsed.data;
+
+  const sourceList = parseList(source);
+  const keyList = parseList(key);
+
+  const conditions: SQL[] = [];
+  if (sourceList.length === 1)
+    conditions.push(eq(playerCareerStatsTable.source, sourceList[0]!));
+  else if (sourceList.length > 1)
+    conditions.push(inArray(playerCareerStatsTable.source, sourceList));
+  if (keyList.length === 1)
+    conditions.push(eq(playerCareerStatsTable.key, keyList[0]!));
+  else if (keyList.length > 1)
+    conditions.push(inArray(playerCareerStatsTable.key, keyList));
+  if (search)
+    conditions.push(
+      ilike(playerCareerStatsTable.nname, `%${search.toLowerCase()}%`),
+    );
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const currentPage = page && page > 0 ? page : 1;
+  const limit = pageSize && pageSize > 0 ? Math.min(pageSize, 200) : 50;
+  const offset = (currentPage - 1) * limit;
+
+  // Over-fetch one row so we always know if a next page exists, independent of
+  // the count estimate below. This keeps the "Next" control boundary-correct
+  // even when `total` is approximate (see the unfiltered branch).
+  const fetched = await db
+    .select()
+    .from(playerCareerStatsTable)
+    .where(where)
+    .orderBy(
+      desc(playerCareerStatsTable.total),
+      asc(playerCareerStatsTable.displayName),
+    )
+    .limit(limit + 1)
+    .offset(offset);
+  const hasMore = fetched.length > limit;
+  const rows = hasMore ? fetched.slice(0, limit) : fetched;
+
+  // Unfiltered, the count is over all ~8M career lines: an exact count(*) is a
+  // multi-second full scan. The table is static between syncs (rebuilt + ANALYZEd
+  // by buildCareerStats), so use the planner's row estimate for the "total" when
+  // there is no filter. Filtered counts stay exact (they ride an index + are small).
+  let count: number;
+  if (where === undefined) {
+    const est = await db.execute(
+      sql`SELECT reltuples::bigint AS estimate FROM pg_class WHERE relname = 'player_career_stats'`,
+    );
+    const raw = (est.rows[0] as { estimate: number | string } | undefined)
+      ?.estimate;
+    count = raw != null ? Number(raw) : 0;
+    // The estimate can drift from the true count; reconcile it with the page
+    // boundary so pagination never locks out a reachable page (or shows a
+    // "Next" past the real end). On the last page, report the exact total.
+    count = hasMore
+      ? Math.max(count, offset + rows.length + 1)
+      : offset + rows.length;
+  } else {
+    const [c] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playerCareerStatsTable)
+      .where(where);
+    count = c!.count;
+  }
+
+  res.json(
+    ListCareerStatsResponse.parse({
+      rows: rows.map((r) => ({
+        displayName: r.displayName,
+        latestPlayerId: r.latestPlayerId,
+        latestTeam: r.latestTeam ?? null,
+        source: r.source,
+        key: r.key,
+        label: r.label,
+        unit: r.unit ?? null,
+        category: r.category ?? null,
+        total: r.total ?? null,
+        seasonsCount: r.seasonsCount,
+        firstSeason: r.firstSeason,
+        lastSeason: r.lastSeason,
+        breakdown: r.breakdown ?? [],
       })),
       total: count,
       page: currentPage,

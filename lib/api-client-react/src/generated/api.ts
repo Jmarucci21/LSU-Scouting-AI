@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CareerStatsResponse,
   DashboardSummary,
   Error,
   FilterOptions,
@@ -28,6 +29,7 @@ import type {
   GetStatsMetaParams,
   GetTopPlayersParams,
   HealthStatus,
+  ListCareerStatsParams,
   ListPlayersParams,
   ListStatsParams,
   ListTeamsParams,
@@ -463,6 +465,91 @@ export function useListStats<TData = Awaited<ReturnType<typeof listStats>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListStatsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCareerStatsUrl = (params?: ListCareerStatsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/stats/career?${stringifiedParams}` : `/api/stats/career`
+}
+
+/**
+ * Searchable, filterable, paginated career totals aggregated across every season a player played. Identity is name-based.
+ * @summary Career stats explorer
+ */
+export const listCareerStats = async (params?: ListCareerStatsParams, options?: RequestInit): Promise<CareerStatsResponse> => {
+
+  return customFetch<CareerStatsResponse>(getListCareerStatsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCareerStatsQueryKey = (params?: ListCareerStatsParams,) => {
+    return [
+    `/api/stats/career`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCareerStatsQueryOptions = <TData = Awaited<ReturnType<typeof listCareerStats>>, TError = ErrorType<unknown>>(params?: ListCareerStatsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCareerStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCareerStatsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCareerStats>>> = ({ signal }) => listCareerStats(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCareerStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCareerStatsQueryResult = NonNullable<Awaited<ReturnType<typeof listCareerStats>>>
+export type ListCareerStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Career stats explorer
+ */
+
+export function useListCareerStats<TData = Awaited<ReturnType<typeof listCareerStats>>, TError = ErrorType<unknown>>(
+ params?: ListCareerStatsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCareerStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCareerStatsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

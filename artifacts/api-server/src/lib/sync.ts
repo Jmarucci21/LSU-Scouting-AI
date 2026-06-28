@@ -5,6 +5,7 @@ import {
   playersTable,
   playerGradesTable,
   playerStatsTable,
+  playerCareerStatsTable,
   syncMetaTable,
 } from "@workspace/db";
 import { logger } from "./logger";
@@ -373,6 +374,16 @@ async function performSync(
       );
     }
 
+    // Rebuild career totals from the refreshed player_stats (non-fatal).
+    try {
+      await buildCareerStats();
+    } catch (e) {
+      logger.error(
+        { err: (e as Error).message, season },
+        "Career stats rebuild failed (non-fatal)",
+      );
+    }
+
     const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${telemetrySynced} Telemetry stat lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, and ${trumediaSynced} TruMedia stat lines for ${season}`;
 
     await db
@@ -718,6 +729,87 @@ async function ingestTelemetry(season: number): Promise<number> {
   return total;
 }
 
+// --- Career aggregation ----------------------------------------------------
+
+/**
+ * Rebuild the precomputed career table from player_stats. A career line is the
+ * aggregation of every season a player played, keyed by normalized name
+ * (`lower(trim(player_name))`) + source + stat key. Player identity is
+ * name-based because the same person gets different player_ids across
+ * seasons/teams (three incompatible id schemes), so the normalized name is the
+ * only cross-season signal. Only numeric stats are aggregated (str-only stats
+ * cannot be summed). Runs entirely in the DB (INSERT..SELECT) so the heavy
+ * GROUP BY over the ~17M-row join happens once per sync rather than per request.
+ * Replaces the whole table atomically. Returns the number of career lines.
+ */
+async function buildCareerStats(): Promise<number> {
+  progress = { phase: "Building career totals", processed: 0, total: 0 };
+  // The career name-search index is a trigram GIN (a leading-wildcard ILIKE
+  // cannot use a btree); ensure the extension exists before the schema's
+  // gin_trgm_ops index is created/used.
+  await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+  const total = await db.transaction(async (tx) => {
+    await tx.execute(sql`TRUNCATE TABLE player_career_stats RESTART IDENTITY`);
+    await tx.execute(sql`
+      INSERT INTO player_career_stats (
+        nname, display_name, source, key, label, category, unit,
+        total, seasons_count, first_season, last_season,
+        latest_team, latest_player_id, breakdown
+      )
+      WITH per_season AS (
+        SELECT
+          lower(btrim(p.player_name)) AS nname,
+          ps.source,
+          ps.key,
+          ps.season,
+          (array_agg(p.player_name ORDER BY ps.season DESC))[1] AS display_name,
+          (array_agg(ps.label ORDER BY ps.season DESC))[1] AS label,
+          (array_agg(ps.category ORDER BY ps.season DESC))[1] AS category,
+          (array_agg(ps.unit ORDER BY ps.season DESC))[1] AS unit,
+          (array_agg(p.team ORDER BY ps.season DESC))[1] AS team,
+          (array_agg(ps.player_id ORDER BY ps.season DESC))[1] AS player_id,
+          sum(ps.value) AS value
+        FROM player_stats ps
+        JOIN players p
+          ON p.player_id = ps.player_id AND p.season = ps.season
+        WHERE ps.value IS NOT NULL
+        GROUP BY lower(btrim(p.player_name)), ps.source, ps.key, ps.season
+      )
+      SELECT
+        nname,
+        (array_agg(display_name ORDER BY season DESC))[1] AS display_name,
+        source,
+        key,
+        (array_agg(label ORDER BY season DESC))[1] AS label,
+        (array_agg(category ORDER BY season DESC))[1] AS category,
+        (array_agg(unit ORDER BY season DESC))[1] AS unit,
+        sum(value) AS total,
+        count(*)::int AS seasons_count,
+        min(season) AS first_season,
+        max(season) AS last_season,
+        (array_agg(team ORDER BY season DESC))[1] AS latest_team,
+        (array_agg(player_id ORDER BY season DESC))[1] AS latest_player_id,
+        jsonb_agg(
+          jsonb_build_object('season', season, 'team', team, 'value', value)
+          ORDER BY season
+        ) AS breakdown
+      FROM per_season
+      WHERE nname <> ''
+      GROUP BY nname, source, key
+    `);
+
+    const [{ count }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playerCareerStatsTable);
+    return count;
+  });
+  // Keep the planner's row estimate fresh: the /stats/career endpoint reads
+  // reltuples for the unfiltered total instead of a multi-second count(*).
+  await db.execute(sql`ANALYZE player_career_stats`);
+  logger.info({ careerLines: total }, "Career stats rebuild complete");
+  return total;
+}
+
 // --- TruMedia raw-stats ingest --------------------------------------------
 
 /**
@@ -994,6 +1086,16 @@ async function performTrumediaBackfill(
       totalStats += r.statLines;
       totalCreated += r.playersCreated;
       totalMatched += r.matched;
+    }
+
+    // Rebuild career totals now that more seasons exist (non-fatal).
+    try {
+      await buildCareerStats();
+    } catch (e) {
+      logger.error(
+        { err: (e as Error).message },
+        "Career stats rebuild failed (non-fatal)",
+      );
     }
 
     const message = `TruMedia backfill ${fromSeason}–${toSeason}: ${totalStats} stat lines, ${totalCreated} historical players created, ${totalMatched} matched to existing players`;

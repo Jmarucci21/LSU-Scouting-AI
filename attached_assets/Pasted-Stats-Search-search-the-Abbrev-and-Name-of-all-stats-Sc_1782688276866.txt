@@ -1,0 +1,198 @@
+Stats
+
+Search: search the Abbrev and Name of all stats
+
+Scopes: limit the list to only stats for Offense, Defense, Passing, Rushing, etc.
+
+Granularities: Aggregate stats are available for reports on all pages except play-by-play; Event stats are only available for play-by-play reports, on play-by-play pages and pop-up modals
+
+The list will also soon include the stat equation and a designation for native/custom stats.
+
+Filters
+
+Search: search the Name and Info columns of all stats
+
+Types: choose the kind of filter (MultiSelect, Range, etc.)
+
+Groups: choose which group the filter is in, in the left-side filter menu (Play, Game, Season, etc.)
+
+Timespans: choose season-level, game-level, or event-level filters
+
+Scopes: the tabs and stats to which the filters apply (Offense, Defense, etc.)  
+
+Entitites: the pages to which the filters apply (Team, Player, etc.)
+
+Searching Tips & Tricks:
+We have a number of patterns that we have while naming statistics, and here is a helpful guide to finding statistics. When searching for stats in the following categories, it might be helpful to use the corresponding abbreviations or phrases:
+
+General
+Games: “Game”, “G”
+
+Points: “Pts”, “P”
+
+Scoring: “Score”, “Scr”, “Scrd”, “Sc”, “S”
+
+Yardage: ”Yards”, “Yds”, “Yd”, “Y”
+
+Distance: “Distance”, “Dist”, “Dst”, “Dt”, “D”
+
+To (example: “Distance to Goal”): “to”, “2”, “T”
+
+Drives: “Drives”, “Drv”, “Dr”, “D”
+
+Plays: “Play”, “Ply”, “Pl”, “P”, “#”
+
+Snaps: "“Snap”, “Snaps”, “Snp”
+
+Scrimmage: “Scr”, “LOS”
+
+Time: “Time”, “Tm”, “T”
+
+Penalties: “Penalty”, “Penalties”, “Pen”, “Pn”
+
+Downs & Conversions
+Downs: “Down”, “Dwn”, “Dn”, “D”
+
+1st Down: “First”, “1st”, “1”, “F”
+
+2nd Down: “Second”, “2nd”, “2”
+
+3rd Down: “Third”, “3rd”, “3”
+
+4th Down: “Fourth”, “4th”, “4”
+
+1st/2nd (Early Downs): “1st/2nd”, “1st2nd”, “1D/2nd”, “1stD/2nd”
+
+3rd/4th (Conversion Downs): “3rd/4th”, “3or4th”
+
+Conversions: “Conversion”, “Conv”, “Cv”
+
+Offense
+Offensive: “Offensive”, “Offense”, “Off”, “Of”, “O”
+
+Formations:
+
+Shotgun: “Shotgun”, “Shtgn”, “Shg”, “Gun”
+
+Backfield: “Backfield”, “Bckfld”, “Bkfld”, “Bkfd”
+
+Passing:
+
+Passing: “Pass”, “Passing”, “Passes”, “Ps”, “P”
+
+Passer: “Passer”, “Psr”, “QB”
+
+Throwing: “Throw”, “Thrw”, “T”
+
+Dropbacks: “Dropback”, “Drpbk”, “Dbk”, “Db”
+
+Attempts: “Att”, “At”, “A”
+
+Completions: “Comp”, “Cmp”, “Cm”, “Cp”, “C”
+
+Passer Rating: “PsrRt”, “PsRt”, “PsRtg”
+
+Sacks: “Sack”, “Sck”, “Sk”
+
+Screens: “Screen”, “Scrn”, “Scr”
+
+Rushing:
+
+Rushing/Running: “Rush”, “Rushing”, “Rushes”, “Run”, “Rsh”, “Rn”, “Rs”, “R”
+
+Rusher: “Rusher”
+
+Receiving:
+
+Reception: “Rec”, “Rc”, “Receiver”, “Rcvr”, “Catch”
+
+Targets: “Target”, “Tar”, “Tgt”, “Trg”, “T”
+
+Routes: “Route”, “Routes”, “Rte”, “Rt”
+
+Drops: “Drop”, “Drops”, “Drp”
+
+Blocking: “Blocking”, “Block”, “Blocked”, “Blocker”, “Blk”, “Blkd”, “Blker”, “Bk”, “Bl”, “B”
+
+Defense
+Defensive: “Defensive”, “Defense”, "Def", "Df", “D”
+
+Opponent-Related:
+
+Opponent: “Opponent”, “Opp”, “|OPP”, “Op”, “O”
+
+Allowed: “Allowed”, “Allwed”, “Allow”, “Allwd”, “All”, “A”
+
+Against: “Against”, “Agt”
+
+Tackling:
+
+Tackles: “Tackle”, “Tkl”, “Tckl”, “T”
+
+Missed: “Miss”, “Ms”
+
+Pressures: “Pressure”, “Prsr”
+
+Fumbling:
+
+Fumbles: “Fumble”,”Fumbles”, “Fmb”, “Fum”, “Fb”
+
+Lost: “FL”, “FmbL”, “FumL”
+
+Forced: “FF”
+
+Recovered: “FR”
+
+Pass Rushing:
+
+Pass Rushing: “PassRusher”, “PassRush”, “PsRush”, “PsRsh”, “Rush”, “Rsh”
+
+Percentages/Rates
+Per:
+
+“Per” (example: EPA Per Rush = “EPAPerRush”)
+
+"P" (example: Points Per Game = “PPG”)
+
+“/” (example: Yards Per Play = “Yd/Ply”)
+
+“%” (example: Receptions Per Target = “Rec%”)
+
+Rate: “Rate”, “%”, “/”, “R”
+
+Percentage, Percent of: “Percentage”, “%”, “/”
+
+Differentials/Margins
+Differentials: “Differential”, “Difference”, “Diff”, “Df”
+
+Margins: “Margin”, “Mgn”, “M”
+
+Special Teams
+Special Teams: “ST”
+
+Kicking: “Kick”, “Kck”, “K”
+
+Kickoffs: “Kickoff”, “KO”
+
+Kicker: “Kicker”
+
+Punting:
+
+Punts: “Punt”, “Pnt”, “Pt”, “P”
+
+Punter: “Punter”
+
+Returns: "Return", "Ret", "Rtrn", "R"
+
+Other/Miscellaneous
+Long: “Long”, “Lng”, “Lg”
+
+Designed: “Designed”, “Des”
+
+Data Sources (varies by site)
+PFF: “PFF”, “|PFF”, “Pff”
+
+NGS: “NGS”, “ngs”
+
+SkillCorner: “SkillCorner”, “|SC”,
+

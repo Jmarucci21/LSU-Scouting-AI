@@ -283,6 +283,40 @@ export interface StatsExplorerResponse {
   pageSize: number;
 }
 
+export interface CareerSeasonEntry {
+  season: number;
+  /** @nullable */
+  team?: string | null;
+  value: number;
+}
+
+export interface CareerStatRow {
+  displayName: string;
+  latestPlayerId: string;
+  /** @nullable */
+  latestTeam?: string | null;
+  source: string;
+  key: string;
+  label: string;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  total?: number | null;
+  seasonsCount: number;
+  firstSeason: number;
+  lastSeason: number;
+  breakdown: CareerSeasonEntry[];
+}
+
+export interface CareerStatsResponse {
+  rows: CareerStatRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface StatKey {
   key: string;
   label: string;
@@ -339,6 +373,20 @@ export type ListStatsParams = {
 source?: string;
 season?: number;
 team?: string;
+search?: string;
+/**
+ * Single stat key or comma-separated list of stat keys.
+ */
+key?: string;
+page?: number;
+pageSize?: number;
+};
+
+export type ListCareerStatsParams = {
+/**
+ * Single source or comma-separated list of sources.
+ */
+source?: string;
 search?: string;
 /**
  * Single stat key or comma-separated list of stat keys.

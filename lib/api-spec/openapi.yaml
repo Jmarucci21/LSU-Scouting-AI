@@ -126,6 +126,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatsExplorerResponse"
+  /stats/career:
+    get:
+      operationId: listCareerStats
+      tags: [stats]
+      summary: Career stats explorer
+      description: Searchable, filterable, paginated career totals aggregated across every season a player played. Identity is name-based.
+      parameters:
+        - { name: source, in: query, required: false, description: "Single source or comma-separated list of sources.", schema: { type: string } }
+        - { name: search, in: query, required: false, schema: { type: string } }
+        - { name: key, in: query, required: false, description: "Single stat key or comma-separated list of stat keys.", schema: { type: string } }
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Career stats page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerStatsResponse"
   /stats/meta:
     get:
       operationId: getStatsMeta
@@ -582,6 +601,44 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StatRow"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    CareerSeasonEntry:
+      type: object
+      required: [season, value]
+      properties:
+        season: { type: integer }
+        team: { type: ["string", "null"] }
+        value: { type: number }
+    CareerStatRow:
+      type: object
+      required: [displayName, latestPlayerId, source, key, label, seasonsCount, firstSeason, lastSeason, breakdown]
+      properties:
+        displayName: { type: string }
+        latestPlayerId: { type: string }
+        latestTeam: { type: ["string", "null"] }
+        source: { type: string }
+        key: { type: string }
+        label: { type: string }
+        unit: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        total: { type: ["number", "null"] }
+        seasonsCount: { type: integer }
+        firstSeason: { type: integer }
+        lastSeason: { type: integer }
+        breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerSeasonEntry"
+    CareerStatsResponse:
+      type: object
+      required: [rows, total, page, pageSize]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerStatRow"
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }

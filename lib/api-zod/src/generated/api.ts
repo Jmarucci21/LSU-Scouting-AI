@@ -156,6 +156,44 @@ export const ListStatsResponse = zod.object({
 
 
 /**
+ * Searchable, filterable, paginated career totals aggregated across every season a player played. Identity is name-based.
+ * @summary Career stats explorer
+ */
+export const ListCareerStatsQueryParams = zod.object({
+  "source": zod.coerce.string().optional().describe('Single source or comma-separated list of sources.'),
+  "search": zod.coerce.string().optional(),
+  "key": zod.coerce.string().optional().describe('Single stat key or comma-separated list of stat keys.'),
+  "page": zod.coerce.number().optional(),
+  "pageSize": zod.coerce.number().optional()
+})
+
+export const ListCareerStatsResponse = zod.object({
+  "rows": zod.array(zod.object({
+  "displayName": zod.string(),
+  "latestPlayerId": zod.string(),
+  "latestTeam": zod.string().nullish(),
+  "source": zod.string(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "unit": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "total": zod.number().nullish(),
+  "seasonsCount": zod.number(),
+  "firstSeason": zod.number(),
+  "lastSeason": zod.number(),
+  "breakdown": zod.array(zod.object({
+  "season": zod.number(),
+  "team": zod.string().nullish(),
+  "value": zod.number()
+}))
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "pageSize": zod.number()
+})
+
+
+/**
  * @summary Available raw-stat filter options
  */
 export const GetStatsMetaQueryParams = zod.object({
