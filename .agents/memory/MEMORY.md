@@ -1,1 +1,2 @@
 - [Orval path+query param collision](orval-param-collision.md) — TS2308 when an OpenAPI op has both a path param and query params; keep single-resource GETs path-param-only.
+- [PFF + TruMedia auth flows](data-source-auth.md) — PFF: x-api-key→JWT→Bearer (feeds permission-gated, 401=no access). TruMedia: createTempPBToken then token query param; uses nflapi base even for CFB; stats not grades.

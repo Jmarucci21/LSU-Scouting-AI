@@ -18,3 +18,9 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+TRUMEDIA_USERNAME = "jmarucc@lsu.edu"
+TRUMEDIA_SITENAME = "LSU-NCAA-CFB"

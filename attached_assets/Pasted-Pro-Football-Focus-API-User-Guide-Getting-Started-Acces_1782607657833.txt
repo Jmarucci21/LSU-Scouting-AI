@@ -1,0 +1,72 @@
+Pro Football Focus API User Guide
+Getting Started
+Access to PFF APIs is available exclusively to our B2B clients. If you are a PFF B2B customer and need an API key, please contact our Service team to request one. API keys are not available to the general public.
+
+All PFF APIs are available at the https://:api.profootballfocus.com endpoint. Note that this is an https endpoint rather than http, you should not communicate with our APIs over http.
+
+Documentation for the PFF APIs is available in an OpenAPI Specification (Swagger). Please consult the documentation, if you come across something that is wrong, isn't clear or needs further detail then please contact us and we'll be happy to incorporate your feedback.
+
+Basic Usage
+To use a PFF API you must first exchange your API key for a JWT token. You can then use this token to make subsequent API calls. Using your API key submit a POST request to the PFF API login endpoint including your API key as a x-api-key request header. The response to this request should be a JSON object that includes a JWT token. Using that JWT token in the Bearer Authorization header in a subsequent response will enable you to access our APIs.
+
+This process is perhaps best explained with a simple example using a command line approach with curl:
+
+Step 1 - Exchange your API key for a JSON Web Token (JWT)
+$ curl -X POST -H "x-api-key: C88B277B-D33C-4FBB-8FA3-1CF761A40EAA" \
+    https://api.profootballfocus.com/auth/login
+Assuming the request is structured correctly and the API key is valid, this request will return a JSON response that includes the JWT token, for example:
+
+{"jwt":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJQRkYuSG9kb3IiLCJpYXQiOjE1NTc0MzAwNjgsImV4cCI6MTU4ODk2NjA2OCwiYXVkIjoiUEZGLkhvZG9yIiwic3ViIjoibmVpbC1sb3Zlcy1nbGl0dGVyQGV4YW1wbGUuY29tIiwiR2l2ZW5OYW1lIjoiSm9obm55IiwiU3VybmFtZSI6IlJvY2tldCIsIkVtYWlsIjoianJvY2tldEBleGFtcGxlLmNvbSIsIlJvbGUiOlsiTWFuYWdlciIsIlByb2plY3QgQWRtaW5pc3RyYXRvciJdfQ.yIWyUGbt1-IMPZIWH3z6DuZ4hh5Z0vdjypPahKEY1MU"}
+In the event that your authorization step fails you will receive a 401 - Unauthorized response with the following response body {"errors": {"detail": "Unauthorized"}}
+
+On successful authorization copy the JWT token value to your clipboard and export it as an environment variable for use later:
+
+$ export JWT=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJQRkYuSG9kb3IiLCJpYXQiOjE1NTc0MzAwNjgsImV4cCI6MTU4ODk2NjA2OCwiYXVkIjoiUEZGLkhvZG9yIiwic3ViIjoibmVpbC1sb3Zlcy1nbGl0dGVyQGV4YW1wbGUuY29tIiwiR2l2ZW5OYW1lIjoiSm9obm55IiwiU3VybmFtZSI6IlJvY2tldCIsIkVtYWlsIjoianJvY2tldEBleGFtcGxlLmNvbSIsIlJvbGUiOlsiTWFuYWdlciIsIlByb2plY3QgQWRtaW5pc3RyYXRvciJdfQ.yIWyUGbt1-IMPZIWH3z6DuZ4hh5Z0vdjypPahKEY1MU
+Step 2 - Use the JWT token to access our APIs
+Once you've obtained a JWT token using the above steps, you can use it to access PFF APIs by setting the request header of a subsequent HTTP request. The request header must be of the form Authorization: Bearer ${JWT}, as illustrated by the following curl example:
+
+$ curl -H "Authorization: Bearer ${JWT}" -v \
+    https://api.profootballfocus.com/v1/video/nfl/games/9312/offense
+API Usage Guidelines
+The JWT token has a limited life
+The API Key is only used in an Authorization call to exchange it for a token which is used to make subsequent calls to all other APIs. The token returned from the authentication call is valid for a limited amount of time. You will need to periodically obtain a new token by calling the auth login API with your API Key as per Step 1 above. Your code should also handle an HTTP 401 indicating that the token you are using is no longer valid.
+
+API calls are rate limited
+API calls are rate limited both globally and for a specific token. This is intended to protect the availability of the overall system for all users. Your code that calls the API should handle an HTTP 429 response for rate limited calls. In the event that your requests are rate limited will receive a 429 - Too Many Requests response with the following response body {"errors": {"detail": "Too many requests"}}. Your code should handle rate limiting.
+
+Access to APIs is controlled through permissions
+We control access to specific APIs through a permissions system. If you need access to an API that you currently can't access, please contact us to request access.
+
+Access to data by league is controlled through permissions
+You should be able to access data from any league that you have purchased. If you believe you have purchased data for a particular league and still cannot access it via the APIs then please contact us so we can check your permissions.
+
+Some API responses are large and use HTTP chunked transfer encoding
+Some of the API responses - particularly those for season long extracts - can be very large. In these cases, the response is sent using HTTP chunked transfer encoding. It is therefore necessary to use an API client that is capable of consuming such chunked responses. While many API client tools and libraries exist that support chunked transfer encoding, the popular Postman tool is a notable exception, and therefore Postman cannot be used for accessing all of the PFF APIs. On the other hand, the cURL tool used for the examples in this document does support chunked transfers. Note that, currently, the Master Data APIs do not use chunked transfer encoding so it is possible to use Postman for accessing the Master Data APIs.
+
+It is also possible to request that the response data be transferred in compressed form, which can result in significantly faster responses. The HTTP response header Content-Encoding: gzip will be set on the response whenever the response data is compressed.
+
+To indicate that the client can accept and handle compressed data, set the HTTP request header Accept-Encoding to the value gzip, as per the following example:
+
+$ curl -H "Authorization: Bearer ${JWT}" -H "Accept-Encoding: gzip" \
+    --compressed -v -o ncaa_2017_defense.json \
+    'https://api.profootballfocus.com/v1/analytics/projections/ncaa/2017/defense'
+(The --compressed option instructs curl to expect compressed response data and decompress it when saving to disk.)
+
+API Reference
+The PFF APIs are documented using an OpenAPI specification (formerly known as Swagger).
+
+Reference documentation for all of the available PFF APIs is available at the links below. Access to this documentation is restricted to those individuals with Ultimate access, if you cannot access the documentation using your Ultimate credentials and would like access please contact our Service team.
+
+PFF Bearer Auth: API for obtaining a Bearer auth token
+PFF Master Data: API for accessing various data about franchises, leagues, teams, players, etc.
+PFF Video Feeds: API for accessing video feeds
+PFF A22 Feeds: API for accessing a22 feeds
+PFF Play Diagrams: API for accessing play diagrams
+Premium Feeds: API for accessing feeds to replace most used PSV1 feeds
+PFF Extended Stats Feeds: API for accessing various extended player stats by game
+Grades Feeds: API for accessing grades feeds to replace PSV1 feeds.
+Open Exchange Feeds: API for freely available data fields.
+Not seeing the documentation links that you expect to see?
+You might be logged in as a user that does not have permission to view the documentation for a particular API. If so, you can click the Logout button to logout and then login as a different user.
+
+Logout
