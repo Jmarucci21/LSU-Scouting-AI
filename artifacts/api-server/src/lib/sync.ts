@@ -21,6 +21,7 @@ import {
 } from "./sources/telemetry";
 import { cfbdConfigured, checkCfbd } from "./sources/cfbd";
 import { trumediaConfigured, checkTrumedia } from "./sources/trumedia";
+import { pffConfigured, checkPff } from "./sources/pff";
 
 let syncing = false;
 
@@ -336,10 +337,13 @@ async function performSync(opts: SyncOptions, season: number): Promise<void> {
 export async function getSourceStatuses(): Promise<
   { name: string; configured: boolean; ok: boolean | null; detail: string | null }[]
 > {
-  const [tele, cfbd, tru] = await Promise.all([
+  const [tele, pff, cfbd, tru] = await Promise.all([
     telemetryConfigured()
       ? checkTelemetry()
       : Promise.resolve({ ok: false, detail: "TELEMETRY_WIRE_SECRET not set" }),
+    pffConfigured()
+      ? checkPff()
+      : Promise.resolve({ ok: false, detail: "PFF_API_KEY not set" }),
     cfbdConfigured()
       ? checkCfbd()
       : Promise.resolve({ ok: false, detail: "CFBD_API_KEY not set" }),
@@ -353,6 +357,12 @@ export async function getSourceStatuses(): Promise<
       configured: telemetryConfigured(),
       ok: telemetryConfigured() ? tele.ok : null,
       detail: tele.detail,
+    },
+    {
+      name: "Pro Football Focus (PFF)",
+      configured: pffConfigured(),
+      ok: pffConfigured() ? pff.ok : null,
+      detail: pff.detail,
     },
     {
       name: "College Football Data (legacy, not used for sync)",
