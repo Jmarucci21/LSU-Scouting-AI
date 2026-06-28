@@ -698,7 +698,12 @@ async function ingestTrumedia(
     .map((t) => ({ team: t, school: resolveSchool(t.fullName, t.abbrev) }))
     .filter((x): x is { team: (typeof tmTeams)[number]; school: string } => !!x.school);
 
-  // Existing players for the season → match-only vs create.
+  // Canonical (non-tm) Telemetry players for the season, used to match TruMedia
+  // players to existing rows. We EXCLUDE tm-% rows here: matching against a
+  // previously tm-created row would mark the player "matched" (so it is not
+  // re-added to createdPlayers), and the transaction below deletes all tm-%
+  // rows for the season — orphaning that player's stats. Excluding them means
+  // every unmatched player is always recreated with its deterministic tm-id.
   const dbPlayers = await db
     .select({
       playerId: playersTable.playerId,
@@ -706,7 +711,9 @@ async function ingestTrumedia(
       team: playersTable.team,
     })
     .from(playersTable)
-    .where(sql`${playersTable.season} = ${season}`);
+    .where(
+      sql`${playersTable.season} = ${season} AND ${playersTable.playerId} NOT LIKE 'tm-%'`,
+    );
   const bySchool = new Map<string, Map<string, string>>();
   for (const p of dbPlayers) {
     if (!p.team) continue;
