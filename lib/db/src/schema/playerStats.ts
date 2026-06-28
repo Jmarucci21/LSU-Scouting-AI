@@ -38,6 +38,17 @@ export const playerStatsTable = pgTable(
       t.season,
     ),
     index("player_stats_source_season_idx").on(t.source, t.season),
+    // Supports the stats explorer's season-only (no source) list join: a
+    // nested-loop lookup of a player's stats by (player_id, season).
+    index("player_stats_player_season_idx").on(t.playerId, t.season),
+    // Supports /stats/meta distinct(source,key,label) per season via an
+    // ordered index-only scan (avoids a 17M-row seq scan + on-disk sort).
+    index("player_stats_season_source_key_label_idx").on(
+      t.season,
+      t.source,
+      t.key,
+      t.label,
+    ),
   ],
 );
 

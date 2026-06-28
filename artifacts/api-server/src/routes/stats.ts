@@ -199,10 +199,13 @@ router.get("/stats/meta", async (req, res): Promise<void> => {
   }
   const { season } = parsed.data;
 
+  // Seasons/teams are sourced from the small players table, not the ~17M-row
+  // player_stats fact table (a distinct scan there costs seconds). Stats only
+  // exist for rostered players, so the players roster is the right domain.
   const seasonRows = await db
-    .selectDistinct({ season: playerStatsTable.season })
-    .from(playerStatsTable)
-    .orderBy(desc(playerStatsTable.season));
+    .selectDistinct({ season: playersTable.season })
+    .from(playersTable)
+    .orderBy(desc(playersTable.season));
   const seasons = seasonRows.map((r) => r.season);
 
   const effSeason = season ?? seasons[0] ?? null;
@@ -239,15 +242,10 @@ router.get("/stats/meta", async (req, res): Promise<void> => {
 
   const teamRows = await db
     .selectDistinct({ team: playersTable.team })
-    .from(playerStatsTable)
-    .innerJoin(
-      playersTable,
-      and(
-        eq(playersTable.playerId, playerStatsTable.playerId),
-        eq(playersTable.season, playerStatsTable.season),
-      ),
+    .from(playersTable)
+    .where(
+      effSeason != null ? eq(playersTable.season, effSeason) : undefined,
     )
-    .where(seasonFilter)
     .orderBy(asc(playersTable.team));
   const teams = teamRows
     .map((r) => r.team)
