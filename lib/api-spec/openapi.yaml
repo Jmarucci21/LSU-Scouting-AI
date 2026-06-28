@@ -386,6 +386,11 @@ components:
       required: [status]
       properties:
         status: { type: string }
+        running: { type: boolean }
+        progress:
+          oneOf:
+            - $ref: "#/components/schemas/SyncProgress"
+            - type: "null"
         lastSyncAt: { type: ["string", "null"] }
         playersSynced: { type: ["integer", "null"] }
         teamsSynced: { type: ["integer", "null"] }
@@ -395,6 +400,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SourceStatus"
+    SyncProgress:
+      type: object
+      required: [phase, processed, total]
+      properties:
+        phase: { type: string }
+        processed: { type: integer }
+        total: { type: integer }
     SourceStatus:
       type: object
       required: [name, configured]

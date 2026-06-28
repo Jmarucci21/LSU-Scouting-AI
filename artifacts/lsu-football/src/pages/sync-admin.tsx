@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useGetSyncStatus, useRunSync, getGetSyncStatusQueryKey, getGetDashboardSummaryQueryKey, getGetTopPlayersQueryKey, getGetPositionGroupsQueryKey, getListPlayersQueryKey, getListTeamsQueryKey, getGetFiltersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,31 +11,54 @@ import { format } from "date-fns";
 export function SyncAdmin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const { data: status, isLoading } = useGetSyncStatus();
+
+  const { data: status, isLoading } = useGetSyncStatus({
+    query: {
+      queryKey: getGetSyncStatusQueryKey(),
+      refetchInterval: (query) => (query.state.data?.running ? 2000 : false),
+    },
+  });
   const runSync = useRunSync();
+
+  const isRunning = !!status?.running || runSync.isPending;
+  const progress = status?.progress;
+  const pct = progress && progress.total > 0
+    ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
+    : 0;
+
+  // Detect the running -> finished transition and refresh all data-backed views.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !status?.running) {
+      queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetTopPlayersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetPositionGroupsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListPlayersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListTeamsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetFiltersQueryKey() });
+      toast({
+        title: status?.status === "error" ? "Sync failed" : "Sync completed",
+        description: status?.message || `Synced ${status?.playersSynced ?? 0} players and ${status?.teamsSynced ?? 0} teams.`,
+        variant: status?.status === "error" ? "destructive" : undefined,
+      });
+    }
+    wasRunning.current = !!status?.running;
+  }, [status?.running, status?.status, status?.message, status?.playersSynced, status?.teamsSynced, queryClient, toast]);
 
   const handleSync = () => {
     runSync.mutate({}, {
-      onSuccess: (data) => {
-        toast({
-          title: "Sync completed",
-          description: data.message || `Synced ${data.playersSynced} players and ${data.teamsSynced} teams.`,
-        });
-        
-        // Invalidate all related queries to refresh the UI
+      onSuccess: () => {
+        // Sync runs in the background; begin polling for progress.
         queryClient.invalidateQueries({ queryKey: getGetSyncStatusQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetTopPlayersQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetPositionGroupsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListPlayersQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListTeamsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetFiltersQueryKey() });
+        toast({
+          title: "Sync started",
+          description: "Pulling all of college football. This runs in the background and may take a few minutes.",
+        });
       },
       onError: (error: any) => {
         toast({
-          title: "Sync failed",
-          description: error.message || "An error occurred during data synchronization.",
+          title: "Could not start sync",
+          description: error?.message || "An error occurred while starting data synchronization.",
           variant: "destructive",
         });
       }
@@ -50,14 +74,43 @@ export function SyncAdmin() {
         </div>
         <Button 
           onClick={handleSync} 
-          disabled={runSync.isPending}
+          disabled={isRunning}
           className="gap-2 font-bold shadow-sm"
           size="lg"
         >
-          <RefreshCw className={`w-4 h-4 ${runSync.isPending ? 'animate-spin' : ''}`} />
-          {runSync.isPending ? "Syncing..." : "Run Full Sync"}
+          <RefreshCw className={`w-4 h-4 ${isRunning ? 'animate-spin' : ''}`} />
+          {isRunning ? "Syncing..." : "Run Full Sync"}
         </Button>
       </header>
+
+      {isRunning && (
+        <Card className="shadow-sm border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-primary animate-spin" /> Sync in Progress
+            </CardTitle>
+            <CardDescription>{progress?.phase || "Starting up..."}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="h-3 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                <span>
+                  {progress
+                    ? `${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()}`
+                    : "Preparing..."}
+                </span>
+                <span>{pct}%</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2 shadow-sm border-border">
@@ -84,13 +137,13 @@ export function SyncAdmin() {
                   <div>
                     <div className="text-sm font-semibold text-muted-foreground uppercase">Status</div>
                     <div className="flex items-center gap-1.5 mt-1">
-                      {status.status === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <AlertCircle className="w-5 h-5 text-amber-500" />}
-                      <span className="font-bold capitalize">{status.status}</span>
+                      {status.status === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : status.status === 'error' ? <XCircle className="w-5 h-5 text-red-500" /> : <AlertCircle className="w-5 h-5 text-amber-500" />}
+                      <span className="font-bold capitalize">{status.running ? "running" : status.status}</span>
                     </div>
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-muted-foreground uppercase">Players</div>
-                    <div className="text-2xl font-black text-primary">{status.playersSynced || 0}</div>
+                    <div className="text-2xl font-black text-primary">{(status.playersSynced || 0).toLocaleString()}</div>
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-muted-foreground uppercase">Teams</div>

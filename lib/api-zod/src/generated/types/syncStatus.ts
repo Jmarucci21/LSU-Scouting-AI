@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SourceStatus } from './sourceStatus';
+import type { SyncProgress } from './syncProgress';
 
 export interface SyncStatus {
   status: string;
+  running?: boolean;
+  progress?: SyncProgress | null;
   /** @nullable */
   lastSyncAt?: string | null;
   /** @nullable */

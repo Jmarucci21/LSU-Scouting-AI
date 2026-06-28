@@ -1,7 +1,19 @@
 ---
-name: PFF and TruMedia auth + access flows
-description: How PFF and TruMedia APIs authenticate, and the known permission/data limits for the LSU account
+name: Telemetry (primary), PFF, and TruMedia auth + access flows
+description: How the Telemetry/Hudl Wire (primary), PFF, and TruMedia APIs authenticate, plus known permission/data limits
 ---
+
+# Telemetry / Hudl Wire (PRIMARY source)
+
+- Base: `https://wire.telemetry.fm`. Responses are gzip (use `--compressed` / a gzip-aware client).
+- Auth: `POST /token` with header `Secret: <TELEMETRY_WIRE_SECRET>` and JSON body `{"expiration":7776000}` returns a raw quoted JWT string. Use it as `Authorization: Bearer <token>`. Cache and re-mint on 401.
+- `find` endpoints are `POST` and return **HTTP 201** (not 200) on success — treat 2xx as ok.
+- **Enumerate graded players via the SCORES collection, not the players (roster) collection.** `POST /ncaa/scores/player/find` with body `{filter:{season,week:"FC"},projection:{player_id:1},limit:5000,sort:[["player_id",1]],skip}` returns exactly the full-season graded players (~11k/season, paginate 5000/page, dedup player_id). `week:"FC"` = full-season cumulative grades.
+  - Pitfall that wasted a sync: the `players` find collection has one doc per player PER WEEK (0-16, P, CC, PO, FC), and `week:"FC"` is rare there. Real `pos_group` values are exactly `OL, WR, RB, DL, QB, SPEC, LB, DB, TE` (9) — NOT IOL/OT/IDL/EDGE/CB/SAF. A per-pos_group + week:FC filter on the players collection returns almost nothing.
+- Grades per player: fetch the player's FC scores row; flatten nested score families to metrics (war, twar, par, player value [often null], tier, pct, per-category scores). Map metric→label/category via a local `GRADE_META` table.
+- Team metadata: scores rows carry `team` as a slug (e.g. `notre-dame`, `ohio-st`, `lsu`). There is NO teams-list endpoint — resolve each DISTINCT slug via `GET /ncaa/teams?team_id=<slug>&season=YYYY` → `csv_team` (clean school name e.g. "LSU"), nickname, `conference.fullName`, colors, logo, abbreviation, level (~130 calls/season).
+- `latest week`: `GET /ncaa/scores/player/week/latest?season=YYYY` → `{week,season}` (returns "FC" once a season is complete).
+- A full-season sync ≈ 3 enumerate calls + ~11k per-player score fetches + ~130 team calls; runs in the background in ~2 min with a concurrency pool.
 
 # PFF (Pro Football Focus) API
 

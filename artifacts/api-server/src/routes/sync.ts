@@ -6,7 +6,12 @@ import {
   RunSyncResponse,
   RunSyncBody,
 } from "@workspace/api-zod";
-import { runSync, getSourceStatuses, isSyncing } from "../lib/sync";
+import {
+  startSync,
+  getSourceStatuses,
+  isSyncing,
+  getProgress,
+} from "../lib/sync";
 
 const router: IRouter = Router();
 
@@ -19,9 +24,12 @@ router.get("/sync/status", async (_req, res): Promise<void> => {
 
   const sources = await getSourceStatuses();
 
+  const running = isSyncing();
   res.json(
     GetSyncStatusResponse.parse({
-      status: isSyncing() ? "running" : (last?.status ?? "idle"),
+      status: running ? "running" : (last?.status ?? "idle"),
+      running,
+      progress: running ? getProgress() : null,
       lastSyncAt: last?.finishedAt
         ? last.finishedAt.toISOString()
         : (last?.startedAt?.toISOString() ?? null),
@@ -41,7 +49,7 @@ router.post("/sync", async (req, res): Promise<void> => {
     return;
   }
 
-  const result = await runSync(parsed.data);
+  const result = startSync(parsed.data);
   res.json(
     RunSyncResponse.parse({
       status: result.status,

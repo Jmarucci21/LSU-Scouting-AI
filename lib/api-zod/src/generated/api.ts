@@ -291,6 +291,12 @@ export const GetFiltersResponse = zod.object({
  */
 export const GetSyncStatusResponse = zod.object({
   "status": zod.string(),
+  "running": zod.boolean().optional(),
+  "progress": zod.union([zod.object({
+  "phase": zod.string(),
+  "processed": zod.number(),
+  "total": zod.number()
+}),zod.null()]).optional(),
   "lastSyncAt": zod.string().nullish(),
   "playersSynced": zod.number().nullish(),
   "teamsSynced": zod.number().nullish(),
@@ -316,6 +322,12 @@ export const RunSyncBody = zod.object({
 
 export const RunSyncResponse = zod.object({
   "status": zod.string(),
+  "running": zod.boolean().optional(),
+  "progress": zod.union([zod.object({
+  "phase": zod.string(),
+  "processed": zod.number(),
+  "total": zod.number()
+}),zod.null()]).optional(),
   "lastSyncAt": zod.string().nullish(),
   "playersSynced": zod.number().nullish(),
   "teamsSynced": zod.number().nullish(),

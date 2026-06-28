@@ -90,8 +90,8 @@ export function PlayersExplorer() {
                 <th className="p-4 font-semibold">Pos</th>
                 <th className="p-4 font-semibold">Team</th>
                 <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("snaps")}>Snaps {renderSortIcon("snaps")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("war")}>PPA/play {renderSortIcon("war")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("player_value")}>Total PPA {renderSortIcon("player_value")}</th>
+                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("war")}>WAR {renderSortIcon("war")}</th>
+                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("twar")}>TWAR {renderSortIcon("twar")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -124,8 +124,8 @@ export function PlayersExplorer() {
                     <td className="p-4 text-sm font-medium">{player.position}</td>
                     <td className="p-4 text-sm text-muted-foreground">{player.team}</td>
                     <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
-                    <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) || '-'}</td>
-                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.playerValue?.toFixed(2) || '-'}</td>
+                    <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) ?? '-'}</td>
+                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.twar?.toFixed(2) ?? '-'}</td>
                   </tr>
                 ))
               )}

@@ -96,12 +96,16 @@ export function PlayerDetail() {
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto text-right">
           <div>
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">PPA/play</div>
-            <div className="text-2xl font-black">{player.war?.toFixed(2) || '-'}</div>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">WAR</div>
+            <div className="text-2xl font-black text-primary">{player.war?.toFixed(2) ?? '-'}</div>
           </div>
           <div>
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total PPA</div>
-            <div className="text-2xl font-black text-primary">{player.playerValue?.toFixed(1) || '-'}</div>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">TWAR</div>
+            <div className="text-2xl font-black">{player.twar?.toFixed(2) ?? '-'}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Player Value</div>
+            <div className="text-2xl font-black">{player.playerValue?.toFixed(1) ?? '-'}</div>
           </div>
           <div>
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Snaps</div>

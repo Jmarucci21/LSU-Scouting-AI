@@ -85,8 +85,8 @@ export function TeamDetail() {
                 <th className="p-4 font-semibold">Player</th>
                 <th className="p-4 font-semibold">Pos</th>
                 <th className="p-4 font-semibold text-right">Snaps</th>
-                <th className="p-4 font-semibold text-right">PPA/play</th>
-                <th className="p-4 font-semibold text-right">Total PPA</th>
+                <th className="p-4 font-semibold text-right">WAR</th>
+                <th className="p-4 font-semibold text-right">TWAR</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -107,8 +107,8 @@ export function TeamDetail() {
                     </td>
                     <td className="p-4 text-sm font-medium">{player.position}</td>
                     <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
-                    <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) || '-'}</td>
-                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.playerValue?.toFixed(2) || '-'}</td>
+                    <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) ?? '-'}</td>
+                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.twar?.toFixed(2) ?? '-'}</td>
                   </tr>
                 ))
               )}

@@ -158,6 +158,12 @@ export interface FilterOptions {
   positions: string[];
 }
 
+export interface SyncProgress {
+  phase: string;
+  processed: number;
+  total: number;
+}
+
 export interface SourceStatus {
   name: string;
   configured: boolean;
@@ -169,6 +175,8 @@ export interface SourceStatus {
 
 export interface SyncStatus {
   status: string;
+  running?: boolean;
+  progress?: SyncProgress | null;
   /** @nullable */
   lastSyncAt?: string | null;
   /** @nullable */

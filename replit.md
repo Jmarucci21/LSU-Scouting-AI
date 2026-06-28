@@ -31,10 +31,10 @@ A scouting war-room web app for exploring advanced college-football player grade
 ## Architecture decisions
 
 - Contract-first: every route validates inputs/outputs with generated Zod schemas; the frontend uses generated hooks only.
-- Primary data source: CollegeFootballData (CFBD) — teams, rosters/players, season stat lines, and PPA (Predicted Points Added). TruMedia is connected for source-status only (not yet ingested). Sync upserts into Postgres; the dashboard/lists read from the DB, never from the APIs directly.
-- CFBD maps onto the existing schema: `players.war` ← averagePPA.all, `players.playerValue` ← totalPPA.all, and each CFBD stat line becomes a `player_grades` row. The frontend relabels these as "PPA/play" and "Total PPA"; API field names stay `war`/`playerValue`.
-- PPA is offense-only (QB/RB/WR/TE); defensive/ST players have null war/value and show "-". This is honest CFBD behavior, not a bug.
-- A full season sync is ~3 CFBD calls (teams/fbs, stats/player/season, ppa/players/season). CFBD free tier is 1,000 requests/month, so keep syncs scoped and infrequent.
+- Primary data source: Telemetry / Hudl Wire (`wire.telemetry.fm`) — players, advanced grades (WAR, TWAR, PAR, player value, tiers, per-category scores), and team metadata for ALL of college football. CFBD and TruMedia remain connected for source-status reachability only (not ingested). Sync writes into Postgres; the dashboard/lists read from the DB, never from the APIs directly.
+- Telemetry maps onto the schema: `players.war` ← war, `players.twar` ← twar, `players.par` ← par, `players.playerValue` ← player value (often null), plus tier/pct; each flattened grade metric becomes a `player_grades` row with a label/category from `GRADE_META`. The frontend now shows real "WAR"/"TWAR" columns.
+- `playerValue` is frequently null in Telemetry — rely on war/twar. Defensive/ST players DO have grades (unlike the old PPA source).
+- Sync pulls the full season: mint token → resolve latest week (FC = full-season cumulative) → enumerate graded players via `POST /ncaa/scores/player/find {season,week:"FC"}` (~11k ids, paginated 5000/page) → fetch each player's FC scores (concurrency pool) → resolve each distinct team slug via `GET /ncaa/teams` → transactional delete-by-season + insert. Runs in the background (~2 min for ~11k players); poll `/sync/status` for `running` + `progress`.
 - Single-resource GETs (`/players/{id}`, `/teams/{school}`) are path-param-only to avoid an Orval codegen name collision (see memory).
 
 ## Product
@@ -50,7 +50,8 @@ A scouting war-room web app for exploring advanced college-football player grade
 
 ## Gotchas
 
-- The app shows empty data until a sync runs; the sync needs `CFBD_API_KEY` set. Default frontend season is 2024 — sync that season (or change the default) or the dashboard reads empty.
+- The app shows empty data until a sync runs; the sync needs `TELEMETRY_WIRE_SECRET` set. Default frontend season is 2025 — sync that season (or change the default in `use-global-filters.ts`) or the dashboard reads empty. Sync replaces by-season, so multiple seasons can coexist (2024 + 2025 are both loaded).
+- The sync runs in the background and takes ~2 min; the Data Sync page polls `/sync/status` and shows a live progress bar. Trigger via the page or `POST /api/sync {"season":YYYY}`.
 - After changing API routes, restart the `artifacts/api-server: API Server` workflow — the server bundles on start.
 - Do not add query params to an operation that also has a path param (Orval TS2308 collision).
 

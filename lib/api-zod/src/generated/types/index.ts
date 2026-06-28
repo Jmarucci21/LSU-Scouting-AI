@@ -25,6 +25,7 @@ export * from './playerListResponse';
 export * from './positionGroupStat';
 export * from './sourceStatus';
 export * from './syncInput';
+export * from './syncProgress';
 export * from './syncStatus';
 export * from './team';
 export * from './teamDetail';
