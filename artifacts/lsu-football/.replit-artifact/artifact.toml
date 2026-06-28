@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "LSU Football Database"
+version = "1.0.0"
+id = "artifacts/lsu-football"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24169
+
+[services.development]
+run = "pnpm --filter @workspace/lsu-football run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/lsu-football", "run", "build" ]
+publicDir = "artifacts/lsu-football/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24169"
+BASE_PATH = "/"

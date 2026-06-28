@@ -5,7 +5,10 @@
  * LSU Football player database API
  * OpenAPI spec version: 0.1.0
  */
+import type { Player } from './player';
+import type { Team } from './team';
 
-export interface HealthStatus {
-  status: string;
+export interface TeamDetail {
+  team: Team;
+  roster: Player[];
 }

@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: LSU Football player database API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: players
+    description: Player records and grades
+  - name: teams
+    description: Team records
+  - name: dashboard
+    description: Dashboard aggregates
+  - name: meta
+    description: Filter metadata
+  - name: sync
+    description: External data synchronization
 paths:
   /healthz:
     get:
@@ -24,6 +34,201 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /players:
+    get:
+      operationId: listPlayers
+      tags: [players]
+      summary: List players
+      description: Searchable, filterable, paginated list of players with their latest grades
+      parameters:
+        - { name: search, in: query, required: false, schema: { type: string } }
+        - { name: team, in: query, required: false, schema: { type: string } }
+        - { name: conference, in: query, required: false, schema: { type: string } }
+        - { name: posGroup, in: query, required: false, schema: { type: string } }
+        - { name: position, in: query, required: false, schema: { type: string } }
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [war, twar, player_value, name, snaps]
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Player list page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerListResponse"
+  /players/{playerId}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get a player by id
+      parameters:
+        - { name: playerId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Player detail with full grades
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List teams
+      parameters:
+        - { name: conference, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Team list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+  /teams/{school}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get a team and its roster with grades
+      parameters:
+        - { name: school, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Team detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: High level dashboard summary
+      parameters:
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - { name: team, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /dashboard/top-players:
+    get:
+      operationId: getTopPlayers
+      tags: [dashboard]
+      summary: Top players by a chosen metric
+      parameters:
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - { name: team, in: query, required: false, schema: { type: string } }
+        - { name: posGroup, in: query, required: false, schema: { type: string } }
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [war, twar, player_value]
+        - { name: limit, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Ranked players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+  /dashboard/position-groups:
+    get:
+      operationId: getPositionGroups
+      tags: [dashboard]
+      summary: Aggregated metrics per position group
+      parameters:
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - { name: team, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Position group aggregates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PositionGroupStat"
+  /meta/filters:
+    get:
+      operationId: getFilters
+      tags: [meta]
+      summary: Available filter options
+      responses:
+        "200":
+          description: Filter metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterOptions"
+  /sync/status:
+    get:
+      operationId: getSyncStatus
+      tags: [sync]
+      summary: Status of the most recent data sync
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+  /sync:
+    post:
+      operationId: runSync
+      tags: [sync]
+      summary: Trigger a data sync from external football APIs
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncInput"
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "503":
+          description: External source unavailable or not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +238,174 @@ components:
           type: string
       required:
         - status
-
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Player:
+      type: object
+      required: [playerId, playerName, season]
+      properties:
+        playerId: { type: string }
+        playerName: { type: string }
+        team: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+        posGroup: { type: ["string", "null"] }
+        conference: { type: ["string", "null"] }
+        jersey: { type: ["string", "null"] }
+        season: { type: integer }
+        week: { type: ["string", "null"] }
+        snapsNonSt: { type: ["number", "null"] }
+        snapsSt: { type: ["number", "null"] }
+        war: { type: ["number", "null"] }
+        twar: { type: ["number", "null"] }
+        par: { type: ["number", "null"] }
+        playerValue: { type: ["number", "null"] }
+        playerValuePct: { type: ["number", "null"] }
+        playerTier: { type: ["string", "null"] }
+    PlayerDetail:
+      type: object
+      required: [playerId, playerName, season]
+      properties:
+        playerId: { type: string }
+        playerName: { type: string }
+        team: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+        posGroup: { type: ["string", "null"] }
+        conference: { type: ["string", "null"] }
+        jersey: { type: ["string", "null"] }
+        season: { type: integer }
+        week: { type: ["string", "null"] }
+        snapsNonSt: { type: ["number", "null"] }
+        snapsSt: { type: ["number", "null"] }
+        war: { type: ["number", "null"] }
+        twar: { type: ["number", "null"] }
+        par: { type: ["number", "null"] }
+        playerValue: { type: ["number", "null"] }
+        playerValuePct: { type: ["number", "null"] }
+        playerTier: { type: ["string", "null"] }
+        grades:
+          type: array
+          items:
+            $ref: "#/components/schemas/GradeItem"
+    GradeItem:
+      type: object
+      required: [key, label, value]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        value: { type: number }
+        category: { type: ["string", "null"] }
+    PlayerListResponse:
+      type: object
+      required: [players, total, page, pageSize]
+      properties:
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    Team:
+      type: object
+      required: [school]
+      properties:
+        school: { type: string }
+        mascot: { type: ["string", "null"] }
+        abbreviation: { type: ["string", "null"] }
+        conference: { type: ["string", "null"] }
+        classification: { type: ["string", "null"] }
+        color: { type: ["string", "null"] }
+        altColor: { type: ["string", "null"] }
+        logo: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        playerCount: { type: ["integer", "null"] }
+    TeamDetail:
+      type: object
+      required: [team, roster]
+      properties:
+        team:
+          $ref: "#/components/schemas/Team"
+        roster:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+    DashboardSummary:
+      type: object
+      required: [totalPlayers, totalTeams, seasons]
+      properties:
+        totalPlayers: { type: integer }
+        totalTeams: { type: integer }
+        avgWar: { type: ["number", "null"] }
+        topPlayer: { $ref: "#/components/schemas/Player" }
+        seasons:
+          type: array
+          items: { type: integer }
+        positionGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionGroupStat"
+        topByValue:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+    PositionGroupStat:
+      type: object
+      required: [posGroup, count]
+      properties:
+        posGroup: { type: string }
+        count: { type: integer }
+        avgWar: { type: ["number", "null"] }
+        avgValue: { type: ["number", "null"] }
+        topPlayerName: { type: ["string", "null"] }
+        topPlayerWar: { type: ["number", "null"] }
+    FilterOptions:
+      type: object
+      required: [seasons, teams, conferences, posGroups, positions]
+      properties:
+        seasons:
+          type: array
+          items: { type: integer }
+        teams:
+          type: array
+          items: { type: string }
+        conferences:
+          type: array
+          items: { type: string }
+        posGroups:
+          type: array
+          items: { type: string }
+        positions:
+          type: array
+          items: { type: string }
+    SyncStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+        lastSyncAt: { type: ["string", "null"] }
+        playersSynced: { type: ["integer", "null"] }
+        teamsSynced: { type: ["integer", "null"] }
+        season: { type: ["integer", "null"] }
+        message: { type: ["string", "null"] }
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+    SourceStatus:
+      type: object
+      required: [name, configured]
+      properties:
+        name: { type: string }
+        configured: { type: boolean }
+        ok: { type: ["boolean", "null"] }
+        detail: { type: ["string", "null"] }
+    SyncInput:
+      type: object
+      properties:
+        season: { type: integer }
+        team: { type: string }
+        conference: { type: string }
