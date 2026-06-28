@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/lsu-mobile/"
+title = "SCOUTPRO Mobile"
+version = "1.0.0"
+id = "artifacts/lsu-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/lsu-mobile/" ]
+localPort = 25697
+
+[services.development]
+run = "pnpm --filter @workspace/lsu-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/lsu-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/lsu-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "25697"
+BASE_PATH = "/lsu-mobile/"
