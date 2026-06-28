@@ -25,14 +25,16 @@ A scouting war-room web app for exploring advanced college-football player grade
 - API contract (source of truth): `lib/api-spec/openapi.yaml` → codegen into `lib/api-zod` (server Zod) and `lib/api-client-react` (React Query hooks).
 - DB schema (source of truth): `lib/db/src/schema/` (teams, players, playerGrades, syncMeta).
 - API routes: `artifacts/api-server/src/routes/` (players, teams, dashboard, meta, sync).
-- External data sources + sync: `artifacts/api-server/src/lib/sources/` (cfbd.ts, telemetry.ts) and `artifacts/api-server/src/lib/sync.ts`.
+- External data sources + sync: `artifacts/api-server/src/lib/sources/` (cfbd.ts, trumedia.ts) and `artifacts/api-server/src/lib/sync.ts`.
 - Frontend: `artifacts/lsu-football/src/` (pages, components, hooks). LSU theme tokens in `src/index.css`.
 
 ## Architecture decisions
 
 - Contract-first: every route validates inputs/outputs with generated Zod schemas; the frontend uses generated hooks only.
-- Two confirmed data sources: Telemetry (wire.telemetry.fm) for player grades, CollegeFootballData for teams/conference context. Sync upserts into Postgres; the dashboard/lists read from the DB, never from the APIs directly.
-- Telemetry's player payload shape is not guaranteed, so `telemetry.ts` uses a tolerant field-name mapper and treats unrecognized numeric fields as per-player "grades".
+- Primary data source: CollegeFootballData (CFBD) — teams, rosters/players, season stat lines, and PPA (Predicted Points Added). TruMedia is connected for source-status only (not yet ingested). Sync upserts into Postgres; the dashboard/lists read from the DB, never from the APIs directly.
+- CFBD maps onto the existing schema: `players.war` ← averagePPA.all, `players.playerValue` ← totalPPA.all, and each CFBD stat line becomes a `player_grades` row. The frontend relabels these as "PPA/play" and "Total PPA"; API field names stay `war`/`playerValue`.
+- PPA is offense-only (QB/RB/WR/TE); defensive/ST players have null war/value and show "-". This is honest CFBD behavior, not a bug.
+- A full season sync is ~3 CFBD calls (teams/fbs, stats/player/season, ppa/players/season). CFBD free tier is 1,000 requests/month, so keep syncs scoped and infrequent.
 - Single-resource GETs (`/players/{id}`, `/teams/{school}`) are path-param-only to avoid an Orval codegen name collision (see memory).
 
 ## Product
@@ -44,11 +46,11 @@ A scouting war-room web app for exploring advanced college-football player grade
 
 ## User preferences
 
-- All third-party API keys must live in secure secrets, never in code. Required: `TELEMETRY_WIRE_SECRET`, `CFBD_API_KEY`.
+- All third-party API keys must live in secure secrets, never in code. Required: `CFBD_API_KEY`. Optional: `TRUMEDIA_MASTER_TOKEN` (+ `TRUMEDIA_USERNAME`, `TRUMEDIA_SITENAME`).
 
 ## Gotchas
 
-- The app shows empty data until a sync runs; the sync needs `TELEMETRY_WIRE_SECRET` and `CFBD_API_KEY` set.
+- The app shows empty data until a sync runs; the sync needs `CFBD_API_KEY` set. Default frontend season is 2024 — sync that season (or change the default) or the dashboard reads empty.
 - After changing API routes, restart the `artifacts/api-server: API Server` workflow — the server bundles on start.
 - Do not add query params to an operation that also has a path param (Orval TS2308 collision).
 

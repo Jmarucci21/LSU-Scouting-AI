@@ -30,13 +30,13 @@ export function Dashboard() {
           loading={loadingSummary} 
         />
         <StatCard 
-          title="Avg WAR" 
+          title="Avg PPA" 
           value={summary?.avgWar?.toFixed(2)} 
           icon={TrendingUp} 
           loading={loadingSummary} 
         />
         <StatCard 
-          title="Top Player WAR" 
+          title="Top Player PPA" 
           value={summary?.topPlayer?.war?.toFixed(2)} 
           subtext={summary?.topPlayer?.playerName}
           icon={Trophy} 
@@ -53,8 +53,8 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-sm border-border">
           <CardHeader>
-            <CardTitle>Top Players by WAR</CardTitle>
-            <CardDescription>Highest Wins Above Replacement for {season || "all time"}</CardDescription>
+            <CardTitle>Top Players by PPA</CardTitle>
+            <CardDescription>Highest Predicted Points Added for {season || "all time"}</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingTopPlayers ? (
@@ -69,7 +69,7 @@ export function Dashboard() {
                     <Tooltip 
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                       itemStyle={{ color: 'hsl(var(--foreground))' }}
-                      formatter={(value: number) => [value?.toFixed(2) || '-', 'WAR']}
+                      formatter={(value: number) => [value?.toFixed(2) || '-', 'PPA']}
                     />
                     <Bar dataKey="war" radius={[0, 4, 4, 0]}>
                       {topPlayers.map((entry, index) => (
@@ -88,7 +88,7 @@ export function Dashboard() {
         <Card className="shadow-sm border-border">
           <CardHeader>
             <CardTitle>Position Groups</CardTitle>
-            <CardDescription>Average WAR by unit</CardDescription>
+            <CardDescription>Average PPA by unit</CardDescription>
           </CardHeader>
           <CardContent className="px-0">
             {loadingPosGroups ? (
@@ -107,7 +107,7 @@ export function Dashboard() {
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-primary">{pg.avgWar?.toFixed(2) || '-'}</div>
-                      <div className="text-xs text-muted-foreground">Avg WAR</div>
+                      <div className="text-xs text-muted-foreground">Avg PPA</div>
                     </div>
                   </div>
                 ))}

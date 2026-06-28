@@ -90,9 +90,8 @@ export function PlayersExplorer() {
                 <th className="p-4 font-semibold">Pos</th>
                 <th className="p-4 font-semibold">Team</th>
                 <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("snaps")}>Snaps {renderSortIcon("snaps")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("war")}>WAR {renderSortIcon("war")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("twar")}>TWAR {renderSortIcon("twar")}</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("player_value")}>Value {renderSortIcon("player_value")}</th>
+                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("war")}>PPA/play {renderSortIcon("war")}</th>
+                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("player_value")}>Total PPA {renderSortIcon("player_value")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -105,12 +104,11 @@ export function PlayersExplorer() {
                     <td className="p-4"><Skeleton className="h-6 w-12 ml-auto" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-16 ml-auto" /></td>
                     <td className="p-4"><Skeleton className="h-6 w-16 ml-auto" /></td>
-                    <td className="p-4"><Skeleton className="h-6 w-16 ml-auto" /></td>
                   </tr>
                 ))
               ) : listData?.players?.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">No players found matching your criteria.</td>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">No players found matching your criteria.</td>
                 </tr>
               ) : (
                 listData?.players?.map((player) => (
@@ -127,7 +125,6 @@ export function PlayersExplorer() {
                     <td className="p-4 text-sm text-muted-foreground">{player.team}</td>
                     <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
                     <td className="p-4 text-sm font-bold text-right">{player.war?.toFixed(2) || '-'}</td>
-                    <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.twar?.toFixed(2) || '-'}</td>
                     <td className="p-4 text-sm font-semibold text-right text-muted-foreground">{player.playerValue?.toFixed(2) || '-'}</td>
                   </tr>
                 ))

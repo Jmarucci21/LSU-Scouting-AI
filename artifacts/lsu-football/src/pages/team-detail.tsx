@@ -85,8 +85,8 @@ export function TeamDetail() {
                 <th className="p-4 font-semibold">Player</th>
                 <th className="p-4 font-semibold">Pos</th>
                 <th className="p-4 font-semibold text-right">Snaps</th>
-                <th className="p-4 font-semibold text-right">WAR</th>
-                <th className="p-4 font-semibold text-right">Value</th>
+                <th className="p-4 font-semibold text-right">PPA/play</th>
+                <th className="p-4 font-semibold text-right">Total PPA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
