@@ -361,7 +361,19 @@ async function performSync(
       }
     }
 
-    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, and ${trumediaSynced} TruMedia stat lines for ${season}`;
+    // Project Telemetry's grades/value metrics into player_stats so Telemetry
+    // appears as a raw source like the others (pure DB-to-DB, never fails sync).
+    let telemetrySynced = 0;
+    try {
+      telemetrySynced = await ingestTelemetry(season);
+    } catch (e) {
+      logger.error(
+        { err: (e as Error).message, season },
+        "Telemetry raw-stats ingest failed (non-fatal)",
+      );
+    }
+
+    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${telemetrySynced} Telemetry stat lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, and ${trumediaSynced} TruMedia stat lines for ${season}`;
 
     await db
       .update(syncMetaTable)
@@ -633,6 +645,77 @@ async function ingestCfbd(season: number): Promise<number> {
     "CFBD raw-stats ingest complete",
   );
   return rows.length;
+}
+
+// --- Telemetry raw-stats ingest -------------------------------------------
+
+/**
+ * Surface Telemetry as a raw source in player_stats (source "telemetry") so it
+ * shows up alongside the other sources in the player tabs, stats explorer, and
+ * sources list. The underlying data already lives in the DB from the main sync:
+ *  - Headline value metrics (WAR/TWAR/PAR/Player Value/percentile/Tier) on the
+ *    players table columns.
+ *  - Flattened grade components (Athleticism, Blocking, PFF Grades, ...) in
+ *    player_grades.
+ * This is a pure DB-to-DB projection (no external calls), replacing the
+ * telemetry rows for the season atomically. Only seasons that have a Telemetry
+ * roster populate (2019+); tm-only seasons have no grades and stay empty.
+ */
+async function ingestTelemetry(season: number): Promise<number> {
+  progress = { phase: `Telemetry ${season}: writing`, processed: 0, total: 0 };
+  const total = await db.transaction(async (tx) => {
+    await tx
+      .delete(playerStatsTable)
+      .where(
+        sql`${playerStatsTable.source} = 'telemetry' AND ${playerStatsTable.season} = ${season}`,
+      );
+
+    // Headline value metrics live on the players table, not player_grades.
+    const numericMetrics: { key: string; label: string; col: string }[] = [
+      { key: "war", label: "WAR", col: "war" },
+      { key: "twar", label: "TWAR", col: "twar" },
+      { key: "par", label: "PAR", col: "par" },
+      { key: "player_value", label: "Player Value", col: "player_value" },
+      {
+        key: "player_value_pct",
+        label: "Player Value %ile",
+        col: "player_value_pct",
+      },
+    ];
+    for (const m of numericMetrics) {
+      await tx.execute(sql`
+        INSERT INTO player_stats (source, player_id, season, category, key, label, value)
+        SELECT 'telemetry', player_id, season, 'Value', ${m.key}, ${m.label}, ${sql.raw(m.col)}
+        FROM players
+        WHERE season = ${season} AND ${sql.raw(m.col)} IS NOT NULL
+      `);
+    }
+    // Tier is categorical → str_value.
+    await tx.execute(sql`
+      INSERT INTO player_stats (source, player_id, season, category, key, label, str_value)
+      SELECT 'telemetry', player_id, season, 'Value', 'player_tier', 'Tier', player_tier
+      FROM players
+      WHERE season = ${season} AND player_tier IS NOT NULL
+    `);
+
+    // Flattened grade components from player_grades.
+    await tx.execute(sql`
+      INSERT INTO player_stats (source, player_id, season, category, key, label, value)
+      SELECT 'telemetry', player_id, season, category, key, label, value
+      FROM player_grades
+      WHERE season = ${season} AND value IS NOT NULL
+    `);
+
+    const [{ count }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playerStatsTable)
+      .where(
+        sql`${playerStatsTable.source} = 'telemetry' AND ${playerStatsTable.season} = ${season}`,
+      );
+    return count;
+  });
+  logger.info({ season, statLines: total }, "Telemetry raw-stats ingest complete");
+  return total;
 }
 
 // --- TruMedia raw-stats ingest --------------------------------------------

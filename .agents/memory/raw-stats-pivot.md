@@ -11,10 +11,14 @@ OWN position-grade models later.
 
 **Decisions (from the user):**
 - Build the raw-stats foundation FIRST; grade models come later (user-built).
-- HIDE Telemetry WAR/TWAR in the UI for now (keep the data in the DB, just don't surface it).
 - Surface raw stats via per-source tabs (one tab per data source) on the player
   detail page, team pages, and a dedicated data/stats explorer page.
-- Telemetry is now used mainly for player SPEEDS.
+- Telemetry IS surfaced as one of those raw sources (reversal of the earlier
+  "hide grades" stance): `ingestTelemetry(season)` projects the WAR/TWAR/PAR/
+  Player Value/Tier (players cols) + flattened grade components (player_grades)
+  into `player_stats` (source `telemetry`). The dashboard/explorer/team LISTS
+  still rank by snaps (no WAR column there); grades live in the Telemetry tab +
+  Stats Explorer.
 - "Hudl StatsBomb" is a SEPARATE source from Telemetry/Hudl Wire.
 
 **Foundation:** `player_stats` table (lib/db/src/schema/playerStats.ts) is a

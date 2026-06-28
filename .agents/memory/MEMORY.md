@@ -3,4 +3,4 @@
 - [CFBD data model & raw-stats ingest](cfbd-data-model.md) — CFBD is now a RAW-STATS source into player_stats (source "cfbd"): PPA (EPA-equiv) + season box stats; 2 calls/season; PPA offense-only. cfbfastR data IS CFBD (no R needed).
 - [Sync scheduler](sync-scheduler.md) — automatic background sync runs on SYNC_SCHEDULE_HOURS cadence (default weekly, 0=off); startup catch-up logic; sync_meta.trigger distinguishes manual/scheduled.
 - [StatsBomb AmFB IQ API](statsbomb-amfb-iq.md) — GraphQL raw stats; endpoint+apikey auth, NCAA=1446, season "Y/Y+1", 3-group constraint (normal/ST/physical can't mix), match by name+team.
-- [Raw-stats pivot](raw-stats-pivot.md) — player_stats source-tagged table is the foundation; hide Telemetry WAR/TWAR in UI, surface raw stats via per-source tabs.
+- [Raw-stats pivot](raw-stats-pivot.md) — player_stats source-tagged table is the foundation; per-source tabs. Telemetry IS surfaced as a source via ingestTelemetry (projects grades→player_stats); lists still rank by snaps.
