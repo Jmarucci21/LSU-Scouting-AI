@@ -1,0 +1,1105 @@
+TELEMETRY 
+
+API ACCESS: https://wire.telemetry.fm/schema/elements#/ 
+
+EXAMPLE SCRIPT:  
+
+Start by pasting this in terminal: 
+
+export WIRE_SECRET='67824e44-2496-4276-ade3-a94105bf6092' 
+
+export WIRE_TOKEN="$(curl -s -X POST 'https://wire.telemetry.fm/token' \ 
+
+  -H 'Accept: text/plain, application/json' \ 
+
+  -H 'Content-Type: application/json' \ 
+
+  -H "Secret: $WIRE_SECRET" \ 
+
+  --data '{"expiration":7776000}')" 
+
+ 
+
+Below is the script (save as wire_all_positions.py): 
+
+ 
+
+#wire_all_positions.py 
+
+ 
+
+from __future__ import annotations 
+
+ 
+
+import os, sys, json, argparse, asyncio, logging, importlib.util 
+
+from typing import Any, Dict, List, Optional, Tuple, Iterable, Union 
+
+from dataclasses import dataclass, field 
+
+from pathlib import Path 
+
+ 
+
+# --- optional deps --- 
+
+try: 
+
+import httpx 
+
+from httpx import HTTPStatusError 
+
+except ImportError as e: 
+
+raise SystemExit("Please install httpx: pip install httpx") from e 
+
+ 
+
+AIOLIMITER_AVAILABLE = importlib.util.find_spec("aiolimiter") is not None 
+
+if AIOLIMITER_AVAILABLE: 
+
+from aiolimiter import AsyncLimiter 
+
+ 
+
+try: 
+
+import pandas as pd 
+
+except Exception: 
+
+pd = None 
+
+ 
+
+BASE_URL = os.environ.get("WIRE_BASE_URL", "https://wire.telemetry.fm") 
+
+TOKEN = os.environ.get("WIRE_TOKEN", os.environ.get("TELEMETRY_API_KEY", "")) 
+
+ 
+
+log = logging.getLogger("wire_all_pos") 
+
+ 
+
+# ===== Usage ===== 
+
+# Example: pull all groups (QB, RB, WR, TE, IOL, OT, IDL, EDGE, LB, CB, SAF, SPEC) 
+
+# python3 wire_all_positions.py pull --season 2025 --format csv --week latest \ 
+
+# --outdir ~/Downloads/telemetry_exports --http2 --concurrency 48 --rps 25 --verbose 
+
+# 
+
+# You can also target a subset of groups: 
+
+# --positions QB,WR,TE 
+
+# 
+
+# ================= 
+
+ 
+
+# ----------------- HTTP CLIENT ----------------- 
+
+ 
+
+@dataclass 
+
+class RetryCfg: 
+
+max_retries: int = 4 
+
+base_delay: float = 0.5 
+
+max_delay: float = 6.0 
+
+retry_statuses: Tuple[int, ...] = (408, 409, 425, 429, 500, 502, 503, 504) 
+
+ 
+
+@dataclass 
+
+class WireClient: 
+
+base_url: str = BASE_URL 
+
+token: str = TOKEN 
+
+timeout: float = 60.0 
+
+http2: bool = False 
+
+max_connections: int = 48 
+
+max_keepalive: int = 16 
+
+retry: RetryCfg = field(default_factory=RetryCfg) 
+
+ 
+
+def __post_init__(self): 
+
+headers = { 
+
+"Authorization": f"Bearer {self.token}" if self.token else "", 
+
+"Accept": "application/json", 
+
+"Accept-Encoding": "br, gzip, deflate", 
+
+} 
+
+self._client = httpx.AsyncClient( 
+
+base_url=self.base_url, 
+
+headers=headers, 
+
+timeout=httpx.Timeout(self.timeout), 
+
+http2=self.http2, 
+
+limits=httpx.Limits(max_connections=self.max_connections, max_keepalive_connections=self.max_keepalive), 
+
+) 
+
+ 
+
+async def close(self): 
+
+await self._client.aclose() 
+
+ 
+
+async def _request(self, method: str, url: str, **kwargs) -> httpx.Response: 
+
+attempt = 0 
+
+while True: 
+
+try: 
+
+resp = await self._client.request(method, url, **kwargs) 
+
+if resp.status_code in self.retry.retry_statuses and attempt < self.retry.max_retries: 
+
+delay = min(self.retry.base_delay * (2 ** attempt), self.retry.max_delay) 
+
+log.debug("retryable status %s %s %s delay=%.2fs", resp.status_code, method, url, delay) 
+
+await asyncio.sleep(delay) 
+
+attempt += 1 
+
+continue 
+
+resp.raise_for_status() 
+
+return resp 
+
+except httpx.HTTPStatusError as e: 
+
+status = e.response.status_code 
+
+if status < 500 and status not in self.retry.retry_statuses: 
+
+raise 
+
+if attempt >= self.retry.max_retries: 
+
+raise 
+
+delay = min(self.retry.base_delay * (2 ** attempt), self.retry.max_delay) 
+
+await asyncio.sleep(delay); attempt += 1 
+
+except httpx.HTTPError: 
+
+if attempt >= self.retry.max_retries: 
+
+raise 
+
+delay = min(self.retry.base_delay * (2 ** attempt), self.retry.max_delay) 
+
+await asyncio.sleep(delay); attempt += 1 
+
+ 
+
+async def get_json(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any: 
+
+r = await self._request("GET", path, **({"params": params} if params else {})) 
+
+# httpx already decompresses if Content-Encoding was set 
+
+return r.json() 
+
+ 
+
+async def post_json(self, path: str, json_body: Dict[str, Any]) -> Any: 
+
+r = await self._request("POST", path, json=json_body) 
+
+return r.json() 
+
+ 
+
+# ---- endpoints we use ---- 
+
+async def find_players( 
+
+self, 
+
+filter: Dict[str, Any], 
+
+projection: Optional[Dict[str, int]] = None, 
+
+limit: Optional[int] = None, 
+
+sort: Optional[List[Tuple[str, int]]] = None, 
+
+skip: Optional[int] = None 
+
+) -> List[Dict[str, Any]]: 
+
+body: Dict[str, Any] = {"filter": filter} 
+
+if projection is not None: body["projection"] = projection 
+
+if limit is not None: body["limit"] = limit 
+
+if sort is not None: body["sort"] = sort 
+
+if skip is not None: body["skip"] = skip 
+
+return await self.post_json("/ncaa/players/find", json_body=body) 
+
+ 
+
+async def get_player_scores(self, player_id: str, season: Optional[int] = None, 
+
+week: Optional[Union[int, str]] = None) -> List[Dict[str, Any]]: 
+
+params: Dict[str, Any] = {"player_id": player_id} 
+
+if season is not None: params["season"] = season 
+
+if week is not None: params["week"] = week 
+
+return await self.get_json("/ncaa/scores/player", params=params) 
+
+ 
+
+async def get_latest_player_week(self, season: int) -> Dict[str, Any]: 
+
+return await self.get_json("/ncaa/scores/player/week/latest", params={"season": season}) 
+
+ 
+
+# ----------------- UTIL ----------------- 
+
+ 
+
+def g(d: Dict[str, Any], path: str, default=None): 
+
+cur: Any = d 
+
+for part in path.split("."): 
+
+if not isinstance(cur, dict) or part not in cur: 
+
+return default 
+
+cur = cur[part] 
+
+return cur 
+
+ 
+
+def worder(w): 
+
+m={"CC":100,"PO":101,"P":102,"FC":103,"AS":104} 
+
+if isinstance(w,int): return w 
+
+if isinstance(w,str) and w.isdigit(): return int(w) 
+
+return m.get(w,-1) 
+
+ 
+
+# ----------------- ENUMERATION ----------------- 
+
+ 
+
+async def enumerate_player_ids( 
+
+client: WireClient, season: int, 
+
+pos_group: Optional[str] = None, 
+
+conference: Optional[str] = None, 
+
+week: Optional[Union[int,str]] = None, 
+
+step: int = 5000 
+
+) -> List[str]: 
+
+filt: Dict[str, Any] = {"season": season} 
+
+if pos_group: filt["pos_group"] = pos_group 
+
+if conference: filt["conference"] = conference 
+
+if week is not None: filt["week"] = week 
+
+ 
+
+skip = 0; seen=set(); ids: List[str] = [] 
+
+while True: 
+
+rows = await client.find_players( 
+
+filter=filt, projection={"player_id":1}, limit=step, sort=[["player_id",1]], skip=skip 
+
+) 
+
+if not rows: break 
+
+for r in rows: 
+
+pid = r.get("player_id") 
+
+if pid and pid not in seen: 
+
+seen.add(pid); ids.append(pid) 
+
+log.info("enumerate skip=%d got=%d total=%d", skip, len(rows), len(ids)) 
+
+if len(rows) < step: break 
+
+skip += step 
+
+return ids 
+
+ 
+
+# ----------------- FETCH ----------------- 
+
+ 
+
+async def fetch_scores_for_players( 
+
+client: WireClient, 
+
+season: int, 
+
+player_ids: List[str], 
+
+week: Optional[Union[int,str]] = None, 
+
+concurrency: int = 48, 
+
+rps: Optional[float] = None 
+
+) -> Iterable[List[Dict[str, Any]]]: 
+
+sem = asyncio.Semaphore(concurrency) 
+
+limiter = AsyncLimiter(rps, 1.0) if (rps and AIOLIMITER_AVAILABLE) else None 
+
+if rps and not AIOLIMITER_AVAILABLE: 
+
+log.warning("aiolimiter not installed; --rps will be ignored (pip install aiolimiter)") 
+
+ 
+
+async def _one(pid: str) -> List[Dict[str, Any]]: 
+
+async with sem: 
+
+if limiter: 
+
+async with limiter: 
+
+pass 
+
+try: 
+
+rows = await client.get_player_scores(player_id=pid, season=season, week=week) 
+
+for r in rows or []: 
+
+r.setdefault("player_id", pid); r.setdefault("season", season) 
+
+return rows or [] 
+
+except HTTPStatusError as exc: 
+
+if exc.response.status_code == 404: 
+
+log.debug("missing player %s (404)", pid); return [] 
+
+log.warning("player %s failed: %s", pid, exc); return [] 
+
+except Exception as e: 
+
+log.warning("player %s failed: %s", pid, e); return [] 
+
+ 
+
+BATCH = max(256, concurrency * 4) 
+
+for i in range(0, len(player_ids), BATCH): 
+
+batch = player_ids[i:i+BATCH] 
+
+results = await asyncio.gather(*[_one(pid) for pid in batch]) 
+
+flat = [r for sub in results for r in sub] 
+
+log.info("fetched batch %d..%d rows=%d", i, i+len(batch)-1, len(flat)) 
+
+yield flat 
+
+ 
+
+# ----------------- FLATTEN ----------------- 
+
+ 
+
+# scalar nested score families -> *.score_weighted (plus war/twar/value families) 
+
+STAT_KEYS = [ 
+
+# Receiving / Rushing / Passing 
+
+"receiving_production","receiving_effectiveness","receiving_composite","xYAC","ball_skills_offense", 
+
+"elusiveness_receiving", 
+
+"rushing_composite","rushing_effectiveness","rushing_production","elusiveness_rushing","explosiveness_rushing", 
+
+"passing_composite","passing_effectiveness","passing_production", 
+
+# OL / DL / Front-7 
+
+"pass_block","run_block","blocking_composite","ol_movement", 
+
+"pass_rush_edge","pass_rush_interior","run_defense_edge","run_defense_interior", 
+
+"dl_getoff_edge","dl_getoff_interior","dl_contain","dl_batdown","dl_screen_awareness", 
+
+"double_team_edge","double_team_interior", 
+
+# Coverage / PFF blends 
+
+"pass_coverage_composite", 
+
+"pff_grade_coverage","pff_grade_pass","pff_grade_pass_block","pff_grade_pass_route","pff_grade_pass_rush", 
+
+"pff_grade_run","pff_grade_run_block","pff_grade_run_defense", 
+
+# Discipline / ball security 
+
+"penalty","penalty_drawn","turnovers","takeaways", 
+
+# Specialists 
+
+"kicking_composite","kicking_bomb","kicking_long","kicking_medium","kicking_short","kicking_accuracy", 
+
+"fg_effectiveness","fg_production", 
+
+"punt_composite","punt_control","punt_effectiveness","punt_production", 
+
+"kickoff_ez_rate", 
+
+# QB traits 
+
+"qb_accuracy_overall","qb_accuracy_short","qb_accuracy_medium","qb_accuracy_long","qb_accuracy_tight", 
+
+"qb_aggressiveness","qb_arm_strength","qb_batdown","qb_decision_making", 
+
+"qb_evade","qb_evade_edge","qb_evade_interior","qb_iq", 
+
+# Defense receiving side 
+
+"ball_skills_defense", 
+
+] 
+
+ 
+
+SPEED_NON_ST = [ 
+
+"acceleration_non_st","linear_speed_non_st","change_of_direction_non_st", 
+
+"play_speed_non_st","power_speed_non_st","sustained_speed_non_st","top_end_speed_non_st","tackle_non_st" 
+
+] 
+
+SPEED_ST = [ 
+
+"acceleration_st","linear_speed_st","change_of_direction_st", 
+
+"play_speed_st","power_speed_st","sustained_speed_st","top_end_speed_st","tackle_st" 
+
+] 
+
+ 
+
+def flatten_one(row: Dict[str, Any], include_st: bool) -> Dict[str, Any]: 
+
+out: Dict[str, Any] = { 
+
+"player_id": row.get("player_id"), 
+
+"player_name": row.get("player_name"), 
+
+"team": row.get("team"), 
+
+"position": row.get("position"), 
+
+"pos_group": row.get("pos_group"), 
+
+"season": row.get("season"), 
+
+"week": row.get("week"), 
+
+"snaps_non_st": row.get("snaps_non_st"), 
+
+"snaps_st": row.get("snaps_st"), 
+
+"jersey": row.get("jersey"), 
+
+} 
+
+ 
+
+# WAR / T(WAR) families (season-to-date snapshot on this row) 
+
+out["war"] = g(row,"war.war") 
+
+out["par"] = g(row,"war.par") 
+
+out["war_od"] = g(row,"war_od.war_od"); out["par_od"] = g(row,"war_od.par_od") 
+
+out["war_st"] = g(row,"war_st.war_st"); out["par_st"] = g(row,"war_st.par_st") 
+
+out["twar"] = g(row,"twar.twar"); out["tpar"] = g(row,"twar.tpar") 
+
+out["twar_od"] = g(row,"twar_od.twar_od"); out["tpar_od"] = g(row,"twar_od.tpar_od") 
+
+out["twar_st"] = g(row,"twar_st.twar_st"); out["tpar_st"] = g(row,"twar_st.tpar_st") 
+
+out["twar_per_season"] = g(row,"twar_per_season.twar_per_season") 
+
+out["tpar_per_season"] = g(row,"twar_per_season.tpar_per_season") 
+
+out["player_tier"] = g(row,"twar.player_tier") or g(row,"twar_per_season.player_tier") 
+
+ 
+
+# Game-level (this row's week deltas) 
+
+out["game_war"] = g(row,"game_war.game_war"); out["game_par"] = g(row,"game_war.game_par") 
+
+out["game_twar"] = g(row,"game_twar.game_twar"); out["game_tpar"] = g(row,"game_twar.game_tpar") 
+
+ 
+
+# Player value 
+
+out["player_value"] = g(row,"player_value.player_value") 
+
+out["player_value_pct"] = g(row,"player_value_percentage.player_value_percentage") 
+
+out["multi_year_value"] = g(row,"multi_year_player_value.multi_year_player_value") 
+
+out["multi_year_value_pct"] = g(row,"multi_year_player_value_percentage.multi_year_player_value_percentage") 
+
+ 
+
+# Scalar families 
+
+for key in STAT_KEYS: 
+
+val = g(row, f"{key}.score_weighted") 
+
+if val is not None: 
+
+out[key] = val 
+
+ 
+
+# Speed/athletic 
+
+for key in SPEED_NON_ST: 
+
+v = g(row, f"{key}.score_weighted") 
+
+if v is not None: 
+
+out[key] = v 
+
+if include_st: 
+
+for key in SPEED_ST: 
+
+v = g(row, f"{key}.score_weighted") 
+
+if v is not None: 
+
+out[key] = v 
+
+ 
+
+return out 
+
+ 
+
+# ----------------- EXPORT ONE GROUP ----------------- 
+
+ 
+
+async def export_pos_group( 
+
+client: WireClient, 
+
+*, 
+
+season: int, 
+
+pos_group: Optional[str], 
+
+conference: Optional[str], 
+
+week: Optional[Union[int,str]], 
+
+include_st: bool, 
+
+fmt: str, 
+
+outdir: Path, 
+
+basename_template: str, 
+
+concurrency: int, 
+
+rps: Optional[float], 
+
+max_players: Optional[int], 
+
+) -> Optional[Path]: 
+
+# Resolve latest-week if asked 
+
+week_param: Optional[Union[int,str]] = None 
+
+if isinstance(week, str): 
+
+wk = week.strip() 
+
+if wk.lower() == "latest": 
+
+latest = await client.get_latest_player_week(season) 
+
+week_param = latest.get("week") 
+
+log.info("[%s] resolved --week latest -> %s", pos_group or "ALL", week_param) 
+
+elif wk.isdigit(): 
+
+week_param = int(wk) 
+
+else: 
+
+week_param = wk # CC/PO/P/FC/AS 
+
+else: 
+
+week_param = week 
+
+ 
+
+# Enumerate players 
+
+pids = await enumerate_player_ids( 
+
+client, season=season, pos_group=pos_group, conference=conference, week=week_param 
+
+) 
+
+if max_players: 
+
+pids = pids[:max(1, max_players)] 
+
+if not pids: 
+
+log.warning("[%s] No players matched.", pos_group or "ALL") 
+
+return None 
+
+log.info("[%s] players to fetch: %d", pos_group or "ALL", len(pids)) 
+
+ 
+
+# Pull & flatten 
+
+rows_out: List[Dict[str, Any]] = [] 
+
+async for batch in fetch_scores_for_players( 
+
+client, season=season, player_ids=pids, week=week_param, concurrency=concurrency, rps=rps 
+
+): 
+
+if not batch: 
+
+continue 
+
+by_pid: Dict[str, List[Dict[str, Any]]] = {} 
+
+for r in batch: 
+
+pid = r.get("player_id") 
+
+if pid: by_pid.setdefault(pid, []).append(r) 
+
+for pid, rs in by_pid.items(): 
+
+rs.sort(key=lambda x: worder(x.get("week"))) 
+
+latest = rs[-1] 
+
+rows_out.append(flatten_one(latest, include_st=include_st)) 
+
+ 
+
+if not rows_out: 
+
+log.warning("[%s] No rows to write.", pos_group or "ALL") 
+
+return None 
+
+ 
+
+# Write 
+
+if pd is None and fmt != "jsonl": 
+
+raise SystemExit("CSV/Parquet/XLSX output requires pandas. Try: pip install pandas pyarrow openpyxl") 
+
+ 
+
+pos_slug = (pos_group or "ALL").lower() 
+
+week_label = (str(week_param) if week_param is not None else "snapshot") 
+
+fname = basename_template.format( 
+
+season=season, pos=pos_slug, week=week_label, ext=fmt 
+
+) 
+
+outpath = outdir / fname 
+
+outpath.parent.mkdir(parents=True, exist_ok=True) 
+
+ 
+
+if fmt == "jsonl": 
+
+with open(outpath, "w", encoding="utf-8") as f: 
+
+for r in rows_out: 
+
+f.write(json.dumps(r, ensure_ascii=False) + "\n") 
+
+else: 
+
+df = pd.DataFrame.from_records(rows_out) 
+
+if fmt == "csv": 
+
+df.to_csv(outpath, index=False) 
+
+elif fmt == "parquet": 
+
+try: 
+
+import pyarrow # noqa: F401 
+
+except Exception as e: 
+
+raise SystemExit("Parquet requires pyarrow. pip install pyarrow") from e 
+
+df.to_parquet(outpath, index=False) 
+
+elif fmt == "xlsx": 
+
+try: 
+
+with pd.ExcelWriter(outpath, engine="openpyxl") as xw: 
+
+df.to_excel(xw, index=False, sheet_name="season_flat") 
+
+except Exception as e: 
+
+raise SystemExit("XLSX requires openpyxl. pip install openpyxl") from e 
+
+ 
+
+log.info("[%s] wrote %s (%d rows)", pos_group or "ALL", outpath, len(rows_out)) 
+
+return outpath 
+
+ 
+
+# ----------------- CLI ----------------- 
+
+ 
+
+DEFAULT_GROUPS = ["QB","RB","WR","TE","IOL","OT","IDL","EDGE","LB","CB","SAF","SPEC"] 
+
+ 
+
+def build_parser() -> argparse.ArgumentParser: 
+
+p = argparse.ArgumentParser(description="Telemetry Wire NCAA: pull flat season-to-date grades for all positions") 
+
+p.add_argument("--base", default=BASE_URL) 
+
+p.add_argument("--token", default=TOKEN) 
+
+p.add_argument("--timeout", type=float, default=60.0) 
+
+p.add_argument("--http2", action=argparse.BooleanOptionalAction, default=False) 
+
+p.add_argument("--concurrency", type=int, default=48) 
+
+p.add_argument("--rps", type=float, help="Requests-per-second cap (requires aiolimiter).") 
+
+p.add_argument("--format", choices=["parquet","csv","jsonl","xlsx"], default="csv") 
+
+p.add_argument("--include-st", action="store_true", help="Include special-teams speed/tackle families") 
+
+p.add_argument("--positions", help="Comma-separated list of pos_group values; default: all") 
+
+p.add_argument("--conf", help="Conference code filter (SEC, ACC, B1G, B12, P12, AAC, MWC, SBC, MAC, IND)") 
+
+p.add_argument("--week", help="Week number or CC/PO/P/FC/AS or 'latest' (default: latest)") 
+
+p.add_argument("--season", type=int, required=True) 
+
+p.add_argument("--outdir", required=True) 
+
+p.add_argument("--outname-template", default="ncaa_{season}_{pos}_flat_{week}.{ext}", 
+
+help="Filename template using {season},{pos},{week},{ext}") 
+
+p.add_argument("--max-players", type=int, help="Debug limiter: max players per group") 
+
+# Logging 
+
+g = p.add_mutually_exclusive_group() 
+
+g.add_argument("--verbose", action="store_true") 
+
+g.add_argument("--debug", action="store_true") 
+
+p.add_argument("--log-level", choices=["CRITICAL","ERROR","WARNING","INFO","DEBUG"]) 
+
+p.add_argument("--quiet", action="store_true") 
+
+sub = p.add_subparsers(dest="cmd", required=True) 
+
+sub.add_parser("pull", help="Run the export for all (or selected) position groups") 
+
+return p 
+
+ 
+
+def _configure_logging(args): 
+
+if args.quiet: level=logging.ERROR 
+
+elif args.log_level: level=getattr(logging, args.log_level) 
+
+elif args.debug: level=logging.DEBUG 
+
+elif args.verbose: level=logging.INFO 
+
+else: level=logging.WARNING 
+
+logging.basicConfig(stream=sys.stderr, level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s") 
+
+ 
+
+async def run_async(args: argparse.Namespace) -> int: 
+
+_configure_logging(args) 
+
+ 
+
+groups = [s.strip() for s in (args.positions.split(",") if args.positions else DEFAULT_GROUPS) if s.strip()] 
+
+season = args.season 
+
+fmt = args.format 
+
+include_st = args.include_st 
+
+outdir = Path(args.outdir).expanduser() 
+
+outdir.mkdir(parents=True, exist_ok=True) 
+
+ 
+
+client = WireClient( 
+
+base_url=args.base, token=args.token, timeout=args.timeout, http2=args.http2, 
+
+max_connections=max(8, args.concurrency), max_keepalive=max(4, args.concurrency//2) 
+
+) 
+
+try: 
+
+# Resolve once if all groups share the same week=latest request; each exporter will log too. 
+
+if not args.week: 
+
+week = "latest" 
+
+else: 
+
+week = args.week 
+
+ 
+
+written: List[Optional[Path]] = [] 
+
+for pg in groups: 
+
+log.info("=== exporting %s ===", pg) 
+
+p = await export_pos_group( 
+
+client, 
+
+season=season, 
+
+pos_group=pg, 
+
+conference=args.conf, 
+
+week=week, 
+
+include_st=include_st, 
+
+fmt=fmt, 
+
+outdir=outdir, 
+
+basename_template=args.outname_template, 
+
+concurrency=args.concurrency, 
+
+rps=args.rps, 
+
+max_players=args.max_players, 
+
+) 
+
+written.append(p) 
+
+ 
+
+# Summary 
+
+files = [str(p) for p in written if p] 
+
+if files: 
+
+print("\n".join(files)) 
+
+else: 
+
+print("No files were written.", file=sys.stderr) 
+
+return 0 
+
+finally: 
+
+await client.close() 
+
+ 
+
+def main(): 
+
+parser = build_parser() 
+
+args = parser.parse_args() 
+
+if not args.token: 
+
+print("WARNING: No token provided. Set env WIRE_TOKEN='ts-...' or pass --token.", file=sys.stderr) 
+
+if args.cmd == "pull": 
+
+try: 
+
+asyncio.run(run_async(args)) 
+
+except KeyboardInterrupt: 
+
+print("Interrupted", file=sys.stderr); sys.exit(130) 
+
+else: 
+
+raise SystemExit("Unknown command") 
+
+ 
+
+if __name__ == "__main__": 
+
+main() 
+
+ 
+
+ 
+
+To run, paste this in the terminal: 
+
+ 
+
+python3 /Users/tommyemerick/Downloads/telemetry/wire_all_positions.py \ (change to wherever you saved this file) 
+
+--season 2025 \ 
+
+--outdir "$HOME/Downloads/telemetry_exports" \ (change this to where you want the outputs to go) 
+
+--positions "QB,RB,WR,TE,OL,DL,LB,DB,SPEC" \ 
+
+--format csv \ 
+
+--http2 \ 
+
+--concurrency 64 \ 
+
+--rps 30 \ 
+
+--week latest \ 
+
+--include-st \ 
+
+--verbose \ 
+
+pull 
