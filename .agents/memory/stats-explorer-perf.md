@@ -29,3 +29,11 @@ scans of `player_stats` — prefer the `players` roster or an index whose leadin
 column matches the WHERE/ORDER. Run `vacuum analyze player_stats` after large
 delete+insert backfills, or dead tuples force heap fetches that defeat
 index-only scans.
+
+## Multi-select filters
+
+The Source and Stat dropdowns are multi-select (searchable combobox: Popover + cmdk Command + Checkbox, in `components/multi-select.tsx`). `/stats` `source` and `key` query params stay typed as `string` but accept a comma-separated list — parsed server-side into `eq` (one value) or `inArray` (many). 
+
+**Why:** keep params as plain strings to avoid Orval array-param codegen issues; no contract signature change needed.
+
+**How to apply:** stat keys shown are the deduped union across selected sources (or all sources when none selected); when the source selection changes, prune now-invalid stat keys or the `key` filter silently zeros the results. The cmdk `CommandList` (max-h + overflow-y-auto + search) is what fixes the un-scrollable 754-row TruMedia stat picker.

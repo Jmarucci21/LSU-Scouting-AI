@@ -333,10 +333,16 @@ export const ListPlayersOrder = {
 } as const;
 
 export type ListStatsParams = {
+/**
+ * Single source or comma-separated list of sources.
+ */
 source?: string;
 season?: number;
 team?: string;
 search?: string;
+/**
+ * Single stat key or comma-separated list of stat keys.
+ */
 key?: string;
 page?: number;
 pageSize?: number;

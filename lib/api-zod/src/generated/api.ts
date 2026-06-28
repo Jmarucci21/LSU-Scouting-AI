@@ -124,11 +124,11 @@ export const GetPlayerStatsResponse = zod.object({
  * @summary Raw stats explorer
  */
 export const ListStatsQueryParams = zod.object({
-  "source": zod.coerce.string().optional(),
+  "source": zod.coerce.string().optional().describe('Single source or comma-separated list of sources.'),
   "season": zod.coerce.number().optional(),
   "team": zod.coerce.string().optional(),
   "search": zod.coerce.string().optional(),
-  "key": zod.coerce.string().optional(),
+  "key": zod.coerce.string().optional().describe('Single stat key or comma-separated list of stat keys.'),
   "page": zod.coerce.number().optional(),
   "pageSize": zod.coerce.number().optional()
 })

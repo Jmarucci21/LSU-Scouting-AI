@@ -1,19 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useListStats, useGetStatsMeta } from "@workspace/api-client-react";
-import type { StatRow } from "@workspace/api-client-react";
+import type { StatRow, StatsMetaResponse } from "@workspace/api-client-react";
 import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelect } from "@/components/multi-select";
 import { Search } from "lucide-react";
 import { Link } from "wouter";
 
@@ -29,6 +23,25 @@ function sourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source;
 }
 
+// Deduped union of stat keys across the given sources (or every source when
+// none are selected), sorted by label.
+function keysForSources(
+  meta: StatsMetaResponse | undefined,
+  sources: string[],
+): { value: string; label: string }[] {
+  const activeSources = sources.length ? sources : (meta?.sources ?? []);
+  const seen = new Map<string, string>();
+  for (const group of meta?.keysBySource ?? []) {
+    if (!activeSources.includes(group.source)) continue;
+    for (const k of group.keys) {
+      if (!seen.has(k.key)) seen.set(k.key, k.label);
+    }
+  }
+  return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) =>
+    a.label.localeCompare(b.label),
+  );
+}
+
 function formatValue(row: StatRow): string {
   if (row.strValue != null && row.strValue !== "") return row.strValue;
   if (row.value == null) return "-";
@@ -39,8 +52,8 @@ function formatValue(row: StatRow): string {
 
 export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const { season } = useGlobalFilters();
-  const [source, setSource] = useState<string | undefined>();
-  const [statKey, setStatKey] = useState<string | undefined>();
+  const [sources, setSources] = useState<string[]>([]);
+  const [statKeys, setStatKeys] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
@@ -49,18 +62,27 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const { data: meta } = useGetStatsMeta({ season });
 
   const { data, isLoading } = useListStats({
-    source,
+    source: sources.length ? sources.join(",") : undefined,
     season,
     team: fixedTeam,
     search: debouncedSearch || undefined,
-    key: statKey,
+    key: statKeys.length ? statKeys.join(",") : undefined,
     page,
     pageSize,
   });
 
-  const keysForSource = source
-    ? meta?.keysBySource?.find((k) => k.source === source)?.keys ?? []
-    : [];
+  const sourceOptions = useMemo(
+    () =>
+      (meta?.sources ?? []).map((s) => ({ value: s, label: sourceLabel(s) })),
+    [meta?.sources],
+  );
+
+  // Stat keys are the union across the selected sources (or every source when
+  // none are selected), deduped by key. Lets you mix metrics from sources.
+  const keyOptions = useMemo(
+    () => keysForSources(meta, sources),
+    [meta, sources],
+  );
 
   return (
     <div className="space-y-4 flex flex-col flex-1 min-h-0">
@@ -79,49 +101,37 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
         </div>
 
         <div className="w-full md:w-56">
-          <Select
-            value={source || "all"}
-            onValueChange={(v) => {
-              setSource(v === "all" ? undefined : v);
-              setStatKey(undefined);
+          <MultiSelect
+            options={sourceOptions}
+            selected={sources}
+            onChange={(v) => {
+              setSources(v);
+              // Drop any selected stat keys that no longer belong to the
+              // selected sources, so the key filter can't silently zero out
+              // the results.
+              const valid = new Set(keysForSources(meta, v).map((k) => k.value));
+              setStatKeys((prev) => prev.filter((k) => valid.has(k)));
               setPage(1);
             }}
-          >
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="All Sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {meta?.sources?.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {sourceLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All Sources"
+            searchPlaceholder="Search sources..."
+            emptyText="No sources."
+          />
         </div>
 
         <div className="w-full md:w-56">
-          <Select
-            value={statKey || "all"}
-            onValueChange={(v) => {
-              setStatKey(v === "all" ? undefined : v);
+          <MultiSelect
+            options={keyOptions}
+            selected={statKeys}
+            onChange={(v) => {
+              setStatKeys(v);
               setPage(1);
             }}
-            disabled={!source}
-          >
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="All Stats" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stats</SelectItem>
-              {keysForSource.map((k) => (
-                <SelectItem key={k.key} value={k.key}>
-                  {k.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="All Stats"
+            searchPlaceholder="Search stats..."
+            emptyText="No stats."
+            disabled={keyOptions.length === 0}
+          />
         </div>
       </div>
 

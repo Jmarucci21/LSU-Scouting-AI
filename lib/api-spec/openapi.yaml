@@ -112,11 +112,11 @@ paths:
       summary: Raw stats explorer
       description: Searchable, filterable, paginated raw stat lines joined with player info.
       parameters:
-        - { name: source, in: query, required: false, schema: { type: string } }
+        - { name: source, in: query, required: false, description: "Single source or comma-separated list of sources.", schema: { type: string } }
         - { name: season, in: query, required: false, schema: { type: integer } }
         - { name: team, in: query, required: false, schema: { type: string } }
         - { name: search, in: query, required: false, schema: { type: string } }
-        - { name: key, in: query, required: false, schema: { type: string } }
+        - { name: key, in: query, required: false, description: "Single stat key or comma-separated list of stat keys.", schema: { type: string } }
         - { name: page, in: query, required: false, schema: { type: integer } }
         - { name: pageSize, in: query, required: false, schema: { type: integer } }
       responses:

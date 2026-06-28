@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
 import { db, playersTable, playerStatsTable } from "@workspace/db";
 import {
   GetPlayerStatsParams,
@@ -106,11 +106,33 @@ router.get("/stats", async (req, res): Promise<void> => {
     effSeason = row?.season ?? null;
   }
 
+  // `source` and `key` accept a single value or a comma-separated list
+  // (the explorer dropdowns are multi-select).
+  const parseList = (v?: string) =>
+    v
+      ? [
+          ...new Set(
+            v
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          ),
+        ]
+      : [];
+  const sourceList = parseList(source);
+  const keyList = parseList(key);
+
   const conditions: SQL[] = [];
-  if (source) conditions.push(eq(playerStatsTable.source, source));
+  if (sourceList.length === 1)
+    conditions.push(eq(playerStatsTable.source, sourceList[0]!));
+  else if (sourceList.length > 1)
+    conditions.push(inArray(playerStatsTable.source, sourceList));
   if (effSeason != null)
     conditions.push(eq(playerStatsTable.season, effSeason));
-  if (key) conditions.push(eq(playerStatsTable.key, key));
+  if (keyList.length === 1)
+    conditions.push(eq(playerStatsTable.key, keyList[0]!));
+  else if (keyList.length > 1)
+    conditions.push(inArray(playerStatsTable.key, keyList));
   if (team) conditions.push(eq(playersTable.team, team));
   if (search) conditions.push(ilike(playersTable.playerName, `%${search}%`));
   const where = conditions.length ? and(...conditions) : undefined;
