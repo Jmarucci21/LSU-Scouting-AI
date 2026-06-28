@@ -307,6 +307,22 @@ export const GetSyncStatusResponse = zod.object({
   "configured": zod.boolean(),
   "ok": zod.boolean().nullish(),
   "detail": zod.string().nullish()
+})).optional(),
+  "scheduler": zod.object({
+  "enabled": zod.boolean(),
+  "intervalHours": zod.number(),
+  "nextRunAt": zod.string().nullish()
+}).optional(),
+  "history": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "trigger": zod.string(),
+  "season": zod.number().nullish(),
+  "playersSynced": zod.number().nullish(),
+  "teamsSynced": zod.number().nullish(),
+  "message": zod.string().nullish(),
+  "startedAt": zod.string().nullish(),
+  "finishedAt": zod.string().nullish()
 })).optional()
 })
 
@@ -338,6 +354,22 @@ export const RunSyncResponse = zod.object({
   "configured": zod.boolean(),
   "ok": zod.boolean().nullish(),
   "detail": zod.string().nullish()
+})).optional(),
+  "scheduler": zod.object({
+  "enabled": zod.boolean(),
+  "intervalHours": zod.number(),
+  "nextRunAt": zod.string().nullish()
+}).optional(),
+  "history": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "trigger": zod.string(),
+  "season": zod.number().nullish(),
+  "playersSynced": zod.number().nullish(),
+  "teamsSynced": zod.number().nullish(),
+  "message": zod.string().nullish(),
+  "startedAt": zod.string().nullish(),
+  "finishedAt": zod.string().nullish()
 })).optional()
 })
 

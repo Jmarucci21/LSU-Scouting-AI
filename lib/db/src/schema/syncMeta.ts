@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const syncMetaTable = pgTable("sync_meta", {
   id: serial("id").primaryKey(),
   status: text("status").notNull(),
+  trigger: text("trigger").notNull().default("manual"),
   message: text("message"),
   season: integer("season"),
   playersSynced: integer("players_synced").notNull().default(0),

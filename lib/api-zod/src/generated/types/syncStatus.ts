@@ -5,8 +5,10 @@
  * LSU Football player database API
  * OpenAPI spec version: 0.1.0
  */
+import type { SchedulerStatus } from './schedulerStatus';
 import type { SourceStatus } from './sourceStatus';
 import type { SyncProgress } from './syncProgress';
+import type { SyncRun } from './syncRun';
 
 export interface SyncStatus {
   status: string;
@@ -23,4 +25,6 @@ export interface SyncStatus {
   /** @nullable */
   message?: string | null;
   sources?: SourceStatus[];
+  scheduler?: SchedulerStatus;
+  history?: SyncRun[];
 }

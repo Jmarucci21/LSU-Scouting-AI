@@ -52,6 +52,7 @@ A scouting war-room web app for exploring advanced college-football player grade
 
 - The app shows empty data until a sync runs; the sync needs `TELEMETRY_WIRE_SECRET` set. Default frontend season is 2025 — sync that season (or change the default in `use-global-filters.ts`) or the dashboard reads empty. Sync replaces by-season, so multiple seasons can coexist (2024 + 2025 are both loaded).
 - The sync runs in the background and takes ~2 min; the Data Sync page polls `/sync/status` and shows a live progress bar. Trigger via the page or `POST /api/sync {"season":YYYY}`.
+- An automatic scheduler runs the background sync for the current season on a cadence (default weekly). Configure via `SYNC_SCHEDULE_HOURS` (set `0` to disable). On startup it catches up if the last successful sync is older than one interval, otherwise it waits out the remainder. Scheduled runs respect the "sync already running" guard. `sync_meta.trigger` records `manual` vs `scheduled`; `/sync/status` now returns `scheduler` info and a `history` array shown on the Data Sync page.
 - After changing API routes, restart the `artifacts/api-server: API Server` workflow — the server bundles on start.
 - Do not add query params to an operation that also has a path param (Orval TS2308 collision).
 

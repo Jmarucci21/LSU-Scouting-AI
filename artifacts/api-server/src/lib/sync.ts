@@ -90,7 +90,12 @@ export type SyncResult = {
  * Kick off a sync in the background and return immediately. Progress can be
  * polled via getProgress() / getSyncStatus().
  */
-export function startSync(opts: SyncOptions): SyncResult {
+export type SyncTrigger = "manual" | "scheduled";
+
+export function startSync(
+  opts: SyncOptions,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
   const season = opts.season ?? defaultSeason();
   if (syncing) {
     return {
@@ -104,7 +109,7 @@ export function startSync(opts: SyncOptions): SyncResult {
   syncing = true;
   progress = { phase: "Starting", processed: 0, total: 0 };
 
-  void performSync(opts, season).catch((e) => {
+  void performSync(opts, season, trigger).catch((e) => {
     logger.error({ err: (e as Error).message }, "Background sync crashed");
   });
 
@@ -117,7 +122,11 @@ export function startSync(opts: SyncOptions): SyncResult {
   };
 }
 
-async function performSync(opts: SyncOptions, season: number): Promise<void> {
+async function performSync(
+  opts: SyncOptions,
+  season: number,
+  trigger: SyncTrigger,
+): Promise<void> {
   let meta: { id: number } | undefined;
   let teamsSynced = 0;
   let playersSynced = 0;
@@ -129,7 +138,7 @@ async function performSync(opts: SyncOptions, season: number): Promise<void> {
 
     [meta] = await db
       .insert(syncMetaTable)
-      .values({ status: "running", season })
+      .values({ status: "running", season, trigger })
       .returning();
 
     progress = { phase: "Connecting to Telemetry", processed: 0, total: 0 };

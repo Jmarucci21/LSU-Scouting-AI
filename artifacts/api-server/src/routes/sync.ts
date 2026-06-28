@@ -12,16 +12,18 @@ import {
   isSyncing,
   getProgress,
 } from "../lib/sync";
+import { getSchedulerStatus } from "../lib/scheduler";
 
 const router: IRouter = Router();
 
 router.get("/sync/status", async (_req, res): Promise<void> => {
-  const [last] = await db
+  const recent = await db
     .select()
     .from(syncMetaTable)
     .orderBy(desc(syncMetaTable.startedAt))
-    .limit(1);
+    .limit(10);
 
+  const last = recent[0];
   const sources = await getSourceStatuses();
 
   const running = isSyncing();
@@ -38,6 +40,18 @@ router.get("/sync/status", async (_req, res): Promise<void> => {
       season: last?.season ?? null,
       message: last?.message ?? null,
       sources,
+      scheduler: getSchedulerStatus(),
+      history: recent.map((r) => ({
+        id: r.id,
+        status: r.status,
+        trigger: r.trigger,
+        season: r.season,
+        playersSynced: r.playersSynced,
+        teamsSynced: r.teamsSynced,
+        message: r.message,
+        startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+        finishedAt: r.finishedAt ? r.finishedAt.toISOString() : null,
+      })),
     }),
   );
 });

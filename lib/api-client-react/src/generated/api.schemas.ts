@@ -173,6 +173,31 @@ export interface SourceStatus {
   detail?: string | null;
 }
 
+export interface SchedulerStatus {
+  enabled: boolean;
+  intervalHours: number;
+  /** @nullable */
+  nextRunAt?: string | null;
+}
+
+export interface SyncRun {
+  id: number;
+  status: string;
+  trigger: string;
+  /** @nullable */
+  season?: number | null;
+  /** @nullable */
+  playersSynced?: number | null;
+  /** @nullable */
+  teamsSynced?: number | null;
+  /** @nullable */
+  message?: string | null;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  finishedAt?: string | null;
+}
+
 export interface SyncStatus {
   status: string;
   running?: boolean;
@@ -188,6 +213,8 @@ export interface SyncStatus {
   /** @nullable */
   message?: string | null;
   sources?: SourceStatus[];
+  scheduler?: SchedulerStatus;
+  history?: SyncRun[];
 }
 
 export interface SyncInput {

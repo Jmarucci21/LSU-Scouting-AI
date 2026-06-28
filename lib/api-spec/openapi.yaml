@@ -400,6 +400,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SourceStatus"
+        scheduler:
+          $ref: "#/components/schemas/SchedulerStatus"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/SyncRun"
+    SchedulerStatus:
+      type: object
+      required: [enabled, intervalHours]
+      properties:
+        enabled: { type: boolean }
+        intervalHours: { type: number }
+        nextRunAt: { type: ["string", "null"] }
+    SyncRun:
+      type: object
+      required: [id, status, trigger]
+      properties:
+        id: { type: integer }
+        status: { type: string }
+        trigger: { type: string }
+        season: { type: ["integer", "null"] }
+        playersSynced: { type: ["integer", "null"] }
+        teamsSynced: { type: ["integer", "null"] }
+        message: { type: ["string", "null"] }
+        startedAt: { type: ["string", "null"] }
+        finishedAt: { type: ["string", "null"] }
     SyncProgress:
       type: object
       required: [phase, processed, total]

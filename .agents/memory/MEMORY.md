@@ -1,3 +1,4 @@
 - [Orval path+query param collision](orval-param-collision.md) — TS2308 when an OpenAPI op has both a path param and query params; keep single-resource GETs path-param-only.
 - [Data source auth flows](data-source-auth.md) — Telemetry/Hudl Wire is PRIMARY (Secret→Bearer token; enumerate via POST scores/player/find week=FC; find returns 201). PFF/TruMedia legacy.
 - [CFBD data model & sync mapping](cfbd-data-model.md) — LEGACY (Telemetry replaced it); CFBD war←avgPPA, playerValue←totalPPA, player_grades←stat lines; offense-only PPA.
+- [Sync scheduler](sync-scheduler.md) — automatic background sync runs on SYNC_SCHEDULE_HOURS cadence (default weekly, 0=off); startup catch-up logic; sync_meta.trigger distinguishes manual/scheduled.

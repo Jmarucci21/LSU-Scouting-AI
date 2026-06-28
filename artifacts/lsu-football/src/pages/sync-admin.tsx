@@ -5,8 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Database, RefreshCw, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { Database, RefreshCw, CheckCircle2, XCircle, AlertCircle, CalendarClock, User, Bot } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
+
+function formatInterval(hours: number): string {
+  if (hours % 168 === 0) {
+    const weeks = hours / 168;
+    return weeks === 1 ? "Weekly" : `Every ${weeks} weeks`;
+  }
+  if (hours % 24 === 0) {
+    const days = hours / 24;
+    return days === 1 ? "Daily" : `Every ${days} days`;
+  }
+  return hours === 1 ? "Hourly" : `Every ${hours} hours`;
+}
 
 export function SyncAdmin() {
   const { toast } = useToast();
@@ -82,6 +94,43 @@ export function SyncAdmin() {
           {isRunning ? "Syncing..." : "Run Full Sync"}
         </Button>
       </header>
+
+      <Card className="shadow-sm border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="w-5 h-5 text-primary" /> Automatic Sync
+          </CardTitle>
+          <CardDescription>Data refreshes on a schedule, no manual sync required</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-8 w-2/3" />
+          ) : status?.scheduler ? (
+            status.scheduler.enabled ? (
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div>
+                  <div className="text-sm font-semibold text-muted-foreground uppercase">Schedule</div>
+                  <div className="text-lg font-bold">{formatInterval(status.scheduler.intervalHours)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-muted-foreground uppercase">Next Run</div>
+                  <div className="text-lg font-bold">
+                    {status.scheduler.nextRunAt
+                      ? `${format(new Date(status.scheduler.nextRunAt), "MMM d, yyyy 'at' h:mm a")} (${formatDistanceToNow(new Date(status.scheduler.nextRunAt), { addSuffix: true })})`
+                      : "Pending"}
+                  </div>
+                </div>
+              </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              Automatic syncing is disabled. Set <code className="font-mono bg-muted px-1 rounded">SYNC_SCHEDULE_HOURS</code> to enable it.
+            </div>
+          )
+          ) : (
+            <div className="text-sm text-muted-foreground">Scheduler status unavailable.</div>
+          )}
+        </CardContent>
+      </Card>
 
       {isRunning && (
         <Card className="shadow-sm border-primary/30">
@@ -200,6 +249,61 @@ export function SyncAdmin() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-sm border-border">
+        <CardHeader>
+          <CardTitle>Run History</CardTitle>
+          <CardDescription>Recent automatic and manual syncs</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : status?.history && status.history.length > 0 ? (
+            <div className="divide-y divide-border">
+              {status.history.map((run) => {
+                const when = run.finishedAt || run.startedAt;
+                return (
+                  <div key={run.id} className="flex items-center justify-between py-3 gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {run.status === "success" ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                      ) : run.status === "error" ? (
+                        <XCircle className="w-5 h-5 text-red-500 shrink-0" />
+                      ) : (
+                        <RefreshCw className="w-5 h-5 text-amber-500 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <span className="capitalize">{run.status}</span>
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                            {run.trigger === "scheduled" ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
+                            {run.trigger === "scheduled" ? "Scheduled" : "Manual"}
+                          </span>
+                          {run.season != null && (
+                            <span className="text-xs text-muted-foreground">{run.season}</span>
+                          )}
+                        </div>
+                        {run.message && (
+                          <div className="text-sm text-muted-foreground truncate">{run.message}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground whitespace-nowrap text-right">
+                      {when ? format(new Date(when), "MMM d, h:mm a") : "—"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8">No sync history yet.</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
