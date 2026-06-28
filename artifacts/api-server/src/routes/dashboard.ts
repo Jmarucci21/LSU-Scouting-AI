@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
-import { db, playersTable, teamsTable } from "@workspace/db";
+import { db, playersTable } from "@workspace/db";
 import {
   GetDashboardSummaryQueryParams,
   GetDashboardSummaryResponse,
@@ -44,27 +44,24 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const [agg] = await db
     .select({
       totalPlayers: sql<number>`count(*)::int`,
+      totalTeams: sql<number>`count(distinct ${playersTable.team})::int`,
       avgWar: sql<number | null>`avg(${playersTable.war})`,
     })
     .from(playersTable)
     .where(where);
 
-  const [teamCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(teamsTable);
-
   const topPlayerRows = await db
     .select()
     .from(playersTable)
     .where(where)
-    .orderBy(desc(playersTable.war))
+    .orderBy(sql`${playersTable.war} desc nulls last`)
     .limit(1);
 
   const topByValue = await db
     .select()
     .from(playersTable)
     .where(where)
-    .orderBy(desc(playersTable.playerValue))
+    .orderBy(sql`${playersTable.playerValue} desc nulls last`)
     .limit(10);
 
   const pgRows = await db
@@ -93,7 +90,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   res.json(
     GetDashboardSummaryResponse.parse({
       totalPlayers: agg?.totalPlayers ?? 0,
-      totalTeams: teamCount?.count ?? 0,
+      totalTeams: agg?.totalTeams ?? 0,
       avgWar: agg?.avgWar ?? null,
       topPlayer: topPlayerRows[0] ? mapPlayer(topPlayerRows[0]) : undefined,
       seasons,
@@ -129,7 +126,7 @@ router.get("/dashboard/top-players", async (req, res): Promise<void> => {
     .select()
     .from(playersTable)
     .where(where)
-    .orderBy(desc(col))
+    .orderBy(sql`${col} desc nulls last`)
     .limit(limit && limit > 0 ? Math.min(limit, 100) : 10);
 
   res.json(GetTopPlayersResponse.parse(rows.map(mapPlayer)));
@@ -171,7 +168,7 @@ router.get("/dashboard/position-groups", async (req, res): Promise<void> => {
       .select()
       .from(playersTable)
       .where(and(...topConds))
-      .orderBy(desc(playersTable.war))
+      .orderBy(sql`${playersTable.war} desc nulls last`)
       .limit(1);
     result.push({
       posGroup: r.posGroup,

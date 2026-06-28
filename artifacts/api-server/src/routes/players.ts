@@ -30,17 +30,25 @@ router.get("/players", async (req, res): Promise<void> => {
     pageSize,
   } = parsed.data;
 
+  // Default to the latest synced season so the list shows one row per player.
+  let effSeason = season ?? null;
+  if (effSeason == null) {
+    const [row] = await db
+      .select({ season: sql<number | null>`max(${playersTable.season})::int` })
+      .from(playersTable);
+    effSeason = row?.season ?? null;
+  }
+
   const conditions: SQL[] = [];
   if (search) conditions.push(ilike(playersTable.playerName, `%${search}%`));
   if (team) conditions.push(eq(playersTable.team, team));
   if (conference) conditions.push(eq(playersTable.conference, conference));
   if (posGroup) conditions.push(eq(playersTable.posGroup, posGroup));
   if (position) conditions.push(eq(playersTable.position, position));
-  if (season != null) conditions.push(eq(playersTable.season, season));
+  if (effSeason != null) conditions.push(eq(playersTable.season, effSeason));
 
   const where = conditions.length ? and(...conditions) : undefined;
 
-  const dir = order === "asc" ? asc : desc;
   const sortColumn =
     sort === "twar"
       ? playersTable.twar
@@ -51,6 +59,10 @@ router.get("/players", async (req, res): Promise<void> => {
           : sort === "snaps"
             ? playersTable.snapsNonSt
             : playersTable.war;
+  const orderExpr =
+    order === "asc"
+      ? sql`${sortColumn} asc nulls last`
+      : sql`${sortColumn} desc nulls last`;
 
   const currentPage = page && page > 0 ? page : 1;
   const limit = pageSize && pageSize > 0 ? Math.min(pageSize, 200) : 25;
@@ -65,7 +77,7 @@ router.get("/players", async (req, res): Promise<void> => {
     .select()
     .from(playersTable)
     .where(where)
-    .orderBy(dir(sortColumn), asc(playersTable.playerName))
+    .orderBy(orderExpr, asc(playersTable.playerName))
     .limit(limit)
     .offset(offset);
 

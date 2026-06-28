@@ -78,7 +78,7 @@ router.get("/teams/:school", async (req, res): Promise<void> => {
     .select()
     .from(playersTable)
     .where(eq(playersTable.team, team.school))
-    .orderBy(desc(playersTable.war), asc(playersTable.playerName));
+    .orderBy(sql`${playersTable.war} desc nulls last`, asc(playersTable.playerName));
 
   res.json(
     GetTeamResponse.parse({

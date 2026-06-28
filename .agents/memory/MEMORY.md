@@ -1,0 +1,1 @@
+- [Orval path+query param collision](orval-param-collision.md) — TS2308 when an OpenAPI op has both a path param and query params; keep single-resource GETs path-param-only.

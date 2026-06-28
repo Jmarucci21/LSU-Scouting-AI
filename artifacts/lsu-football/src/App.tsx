@@ -2,27 +2,30 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Layout } from "@/components/layout";
+import { Dashboard } from "@/pages/dashboard";
+import { PlayersExplorer } from "@/pages/players-explorer";
+import { PlayerDetail } from "@/pages/player-detail";
+import { Teams } from "@/pages/teams";
+import { TeamDetail } from "@/pages/team-detail";
+import { SyncAdmin } from "@/pages/sync-admin";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
-      </div>
-    </div>
-  );
-}
-
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <Layout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/players" component={PlayersExplorer} />
+        <Route path="/players/:playerId" component={PlayerDetail} />
+        <Route path="/teams" component={Teams} />
+        <Route path="/teams/:school" component={TeamDetail} />
+        <Route path="/sync" component={SyncAdmin} />
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { useListPlayers, useGetFilters } from "@workspace/api-client-react";
-import type { ListPlayersSort, ListPlayersOrder } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { ListPlayersSort, ListPlayersOrder } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
