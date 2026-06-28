@@ -41,3 +41,4 @@ export * from './syncRun';
 export * from './syncStatus';
 export * from './team';
 export * from './teamDetail';
+export * from './trumediaBackfillInput';

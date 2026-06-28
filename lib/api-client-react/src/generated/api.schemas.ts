@@ -223,6 +223,11 @@ export interface SyncInput {
   conference?: string;
 }
 
+export interface TrumediaBackfillInput {
+  fromSeason?: number;
+  toSeason?: number;
+}
+
 export interface PlayerStatItem {
   key: string;
   label: string;

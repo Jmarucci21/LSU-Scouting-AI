@@ -281,6 +281,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/trumedia:
+    post:
+      operationId: runTrumediaBackfill
+      tags: [sync]
+      summary: Backfill TruMedia raw stats across a range of seasons
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrumediaBackfillInput"
+      responses:
+        "200":
+          description: Backfill started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "503":
+          description: External source unavailable or not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -499,6 +523,11 @@ components:
         season: { type: integer }
         team: { type: string }
         conference: { type: string }
+    TrumediaBackfillInput:
+      type: object
+      properties:
+        fromSeason: { type: integer }
+        toSeason: { type: integer }
     PlayerStatItem:
       type: object
       required: [key, label, season]

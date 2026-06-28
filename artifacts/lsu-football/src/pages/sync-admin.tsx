@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useGetSyncStatus, useRunSync, getGetSyncStatusQueryKey, getGetDashboardSummaryQueryKey, getGetTopPlayersQueryKey, getGetPositionGroupsQueryKey, getListPlayersQueryKey, getListTeamsQueryKey, getGetFiltersQueryKey } from "@workspace/api-client-react";
+import { useGetSyncStatus, useRunSync, useRunTrumediaBackfill, getGetSyncStatusQueryKey, getGetDashboardSummaryQueryKey, getGetTopPlayersQueryKey, getGetPositionGroupsQueryKey, getListPlayersQueryKey, getListTeamsQueryKey, getGetFiltersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Database, RefreshCw, CheckCircle2, XCircle, AlertCircle, CalendarClock, User, Bot } from "lucide-react";
+import { Database, RefreshCw, CheckCircle2, XCircle, AlertCircle, CalendarClock, User, Bot, History } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 
 function formatInterval(hours: number): string {
@@ -31,8 +31,9 @@ export function SyncAdmin() {
     },
   });
   const runSync = useRunSync();
+  const runTrumediaBackfill = useRunTrumediaBackfill();
 
-  const isRunning = !!status?.running || runSync.isPending;
+  const isRunning = !!status?.running || runSync.isPending || runTrumediaBackfill.isPending;
   const progress = status?.progress;
   const pct = progress && progress.total > 0
     ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
@@ -77,6 +78,25 @@ export function SyncAdmin() {
     });
   };
 
+  const handleTrumediaBackfill = () => {
+    runTrumediaBackfill.mutate({ data: {} }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetSyncStatusQueryKey() });
+        toast({
+          title: "TruMedia backfill started",
+          description: "Pulling all TruMedia seasons since 2016. This runs in the background and may take a while.",
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Could not start backfill",
+          description: error?.message || "An error occurred while starting the TruMedia backfill.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-5xl mx-auto">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -84,15 +104,27 @@ export function SyncAdmin() {
           <h1 className="text-3xl font-black tracking-tight">Data Synchronization</h1>
           <p className="text-muted-foreground mt-1">Manage external scouting data imports</p>
         </div>
-        <Button 
-          onClick={handleSync} 
-          disabled={isRunning}
-          className="gap-2 font-bold shadow-sm"
-          size="lg"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRunning ? 'animate-spin' : ''}`} />
-          {isRunning ? "Syncing..." : "Run Full Sync"}
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={handleTrumediaBackfill}
+            disabled={isRunning}
+            variant="outline"
+            className="gap-2 font-bold shadow-sm"
+            size="lg"
+          >
+            <History className="w-4 h-4" />
+            Backfill TruMedia (2016–present)
+          </Button>
+          <Button
+            onClick={handleSync}
+            disabled={isRunning}
+            className="gap-2 font-bold shadow-sm"
+            size="lg"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRunning ? 'animate-spin' : ''}`} />
+            {isRunning ? "Syncing..." : "Run Full Sync"}
+          </Button>
+        </div>
       </header>
 
       <Card className="shadow-sm border-border">

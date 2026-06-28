@@ -41,7 +41,8 @@ import type {
   SyncInput,
   SyncStatus,
   Team,
-  TeamDetail
+  TeamDetail,
+  TrumediaBackfillInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1193,5 +1194,75 @@ export const useRunSync = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRunSyncMutationOptions(options));
+    }
+
+export const getRunTrumediaBackfillUrl = () => {
+
+
+
+
+  return `/api/sync/trumedia`
+}
+
+/**
+ * @summary Backfill TruMedia raw stats across a range of seasons
+ */
+export const runTrumediaBackfill = async (trumediaBackfillInput?: TrumediaBackfillInput, options?: RequestInit): Promise<SyncStatus> => {
+
+  return customFetch<SyncStatus>(getRunTrumediaBackfillUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trumediaBackfillInput)
+  }
+);}
+
+
+
+
+export const getRunTrumediaBackfillMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runTrumediaBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runTrumediaBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext> => {
+
+const mutationKey = ['runTrumediaBackfill'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runTrumediaBackfill>>, {data?: BodyType<TrumediaBackfillInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runTrumediaBackfill(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunTrumediaBackfillMutationResult = NonNullable<Awaited<ReturnType<typeof runTrumediaBackfill>>>
+    export type RunTrumediaBackfillMutationBody = BodyType<TrumediaBackfillInput> | undefined
+    export type RunTrumediaBackfillMutationError = ErrorType<Error>
+
+    /**
+ * @summary Backfill TruMedia raw stats across a range of seasons
+ */
+export const useRunTrumediaBackfill = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runTrumediaBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runTrumediaBackfill>>,
+        TError,
+        {data?: BodyType<TrumediaBackfillInput>},
+        TContext
+      > => {
+      return useMutation(getRunTrumediaBackfillMutationOptions(options));
     }
 

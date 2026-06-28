@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -24,3 +24,6 @@ timeoutMs = 20000
 [userenv.shared]
 TRUMEDIA_USERNAME = "jmarucc@lsu.edu"
 TRUMEDIA_SITENAME = "LSU-NCAA-CFB"
+
+[nix]
+channel = "stable-25_05"

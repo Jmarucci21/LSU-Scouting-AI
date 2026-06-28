@@ -26,7 +26,12 @@ import {
   type TelemetryTeam,
 } from "./sources/telemetry";
 import { cfbdConfigured, checkCfbd, fetchCfbdRawStats } from "./sources/cfbd";
-import { trumediaConfigured, checkTrumedia } from "./sources/trumedia";
+import {
+  trumediaConfigured,
+  checkTrumedia,
+  fetchTrumediaTeams,
+  fetchTrumediaTeamPlayers,
+} from "./sources/trumedia";
 import { pffConfigured, checkPff } from "./sources/pff";
 
 let syncing = false;
@@ -299,9 +304,13 @@ async function performSync(
       await tx
         .delete(playerGradesTable)
         .where(sql`${playerGradesTable.season} = ${season}`);
+      // Exclude tm-% rows so TruMedia-created players (and their stats) survive
+      // a Telemetry resync; ingestTrumedia refreshes them later in this sync.
       await tx
         .delete(playersTable)
-        .where(sql`${playersTable.season} = ${season}`);
+        .where(
+          sql`${playersTable.season} = ${season} AND ${playersTable.playerId} NOT LIKE 'tm-%'`,
+        );
 
       for (const batch of chunk(playerValues, 500)) {
         await tx.insert(playersTable).values(batch);
@@ -339,7 +348,20 @@ async function performSync(
       }
     }
 
-    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${statsSynced} StatsBomb stat lines, and ${cfbdSynced} CFBD stat lines for ${season}`;
+    let trumediaSynced = 0;
+    if (trumediaConfigured()) {
+      try {
+        const r = await ingestTrumedia(season);
+        trumediaSynced = r.statLines;
+      } catch (e) {
+        logger.error(
+          { err: (e as Error).message, season },
+          "TruMedia raw-stats ingest failed (non-fatal)",
+        );
+      }
+    }
+
+    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, and ${trumediaSynced} TruMedia stat lines for ${season}`;
 
     await db
       .update(syncMetaTable)
@@ -611,6 +633,309 @@ async function ingestCfbd(season: number): Promise<number> {
     "CFBD raw-stats ingest complete",
   );
   return rows.length;
+}
+
+// --- TruMedia raw-stats ingest --------------------------------------------
+
+/**
+ * Pull TruMedia player-season stats for a season and write them into
+ * player_stats (source "trumedia"). TruMedia covers all divisions, so we map
+ * each TruMedia team to one of our FBS schools and only fetch those teams.
+ *
+ * Player linkage (capture ALL TruMedia players):
+ *  - If a TruMedia player matches an existing Telemetry roster row by
+ *    (school, name), its stats attach to that canonical player id.
+ *  - Otherwise we CREATE a lightweight player row (id "tm-<teamId>-<playerId>")
+ *    so the player's longitudinal stats are still captured. This applies to
+ *    every season, so seasons that already have a Telemetry roster (e.g. the
+ *    current one) no longer drop their unmatched TruMedia players.
+ *
+ * The Telemetry main sync deletes its own players for a season but EXCLUDES
+ * tm-% rows, so tm-created players survive a Telemetry resync; ingestTrumedia
+ * also re-runs at the end of each sync, keeping them fresh.
+ *
+ * Replaces this season's TruMedia stat rows (and any tm-created players)
+ * atomically. Returns counts for logging/reporting.
+ */
+async function ingestTrumedia(
+  season: number,
+): Promise<{ statLines: number; playersCreated: number; matched: number }> {
+  progress = { phase: `TruMedia ${season}: resolving teams`, processed: 0, total: 0 };
+  const tmTeams = await fetchTrumediaTeams(season);
+  if (tmTeams.length === 0) return { statLines: 0, playersCreated: 0, matched: 0 };
+
+  // Our FBS schools (from Telemetry) drive both team mapping and FBS filtering.
+  const dbTeams = await db
+    .select({
+      school: teamsTable.school,
+      abbreviation: teamsTable.abbreviation,
+      conference: teamsTable.conference,
+    })
+    .from(teamsTable);
+  const schoolsLower = dbTeams.map((t) => ({ raw: t.school, lower: t.school.toLowerCase() }));
+  const abbrevMap = new Map<string, string>();
+  const confMap = new Map<string, string | null>();
+  for (const t of dbTeams) {
+    if (t.abbreviation) abbrevMap.set(t.abbreviation.toLowerCase(), t.school);
+    confMap.set(t.school, t.conference);
+  }
+  function resolveSchool(fullName: string, abbrev: string | null): string | null {
+    const lower = fullName.toLowerCase();
+    let best: string | null = null;
+    let bestLen = 0;
+    for (const s of schoolsLower) {
+      if (lower.startsWith(s.lower) && s.lower.length > bestLen) {
+        best = s.raw;
+        bestLen = s.lower.length;
+      }
+    }
+    if (best) return best;
+    if (abbrev) return abbrevMap.get(abbrev.toLowerCase()) ?? null;
+    return null;
+  }
+
+  const fbsTeams = tmTeams
+    .map((t) => ({ team: t, school: resolveSchool(t.fullName, t.abbrev) }))
+    .filter((x): x is { team: (typeof tmTeams)[number]; school: string } => !!x.school);
+
+  // Existing players for the season → match-only vs create.
+  const dbPlayers = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(sql`${playersTable.season} = ${season}`);
+  const bySchool = new Map<string, Map<string, string>>();
+  for (const p of dbPlayers) {
+    if (!p.team) continue;
+    const ns = normName(p.team);
+    let m = bySchool.get(ns);
+    if (!m) {
+      m = new Map();
+      bySchool.set(ns, m);
+    }
+    m.set(normName(p.playerName), p.playerId);
+  }
+
+  // Fetch each FBS team's roster of stats (per-team queries; full set is too
+  // large to pull for all players at once).
+  progress = {
+    phase: `TruMedia ${season}: fetching rosters`,
+    processed: 0,
+    total: fbsTeams.length,
+  };
+  const collected: {
+    playerId: string;
+    playerName: string;
+    teamId: number;
+    school: string;
+    stats: { key: string; label: string; category: string; value: number | null; strValue: string | null }[];
+  }[] = [];
+  let fetchFailures = 0;
+  await mapPool(fbsTeams, 6, async (ft) => {
+    try {
+      const players = await fetchTrumediaTeamPlayers(season, ft.team);
+      for (const p of players) {
+        collected.push({
+          playerId: p.playerId,
+          playerName: p.playerName,
+          teamId: p.teamId,
+          school: ft.school,
+          stats: p.stats,
+        });
+      }
+    } catch (e) {
+      fetchFailures += 1;
+      logger.warn(
+        { season, team: ft.team.fullName, err: (e as Error).message },
+        "TruMedia team fetch failed (skipping)",
+      );
+    } finally {
+      progress = { ...progress, processed: progress.processed + 1 };
+    }
+  });
+
+  if (fbsTeams.length && fetchFailures / fbsTeams.length > 0.2) {
+    throw new Error(
+      `Aborting TruMedia ${season}: ${fetchFailures}/${fbsTeams.length} team fetches failed`,
+    );
+  }
+
+  progress = { phase: `TruMedia ${season}: writing`, processed: 0, total: collected.length };
+  const statRows: (typeof playerStatsTable.$inferInsert)[] = [];
+  const createdPlayers = new Map<string, typeof playersTable.$inferInsert>();
+  let matched = 0;
+  for (const c of collected) {
+    let playerId = bySchool.get(normName(c.school))?.get(normName(c.playerName));
+    if (playerId) {
+      matched += 1;
+    } else {
+      playerId = `tm-${c.teamId}-${c.playerId}`;
+      if (!createdPlayers.has(playerId)) {
+        createdPlayers.set(playerId, {
+          playerId,
+          season,
+          playerName: c.playerName,
+          team: c.school,
+          position: null,
+          posGroup: null,
+          conference: confMap.get(c.school) ?? null,
+          jersey: null,
+          week: null,
+          snapsNonSt: null,
+          snapsSt: null,
+          war: null,
+          twar: null,
+          par: null,
+          playerValue: null,
+          playerValuePct: null,
+          playerTier: null,
+        });
+      }
+    }
+    for (const st of c.stats) {
+      statRows.push({
+        source: "trumedia",
+        playerId,
+        season,
+        week: null,
+        category: st.category,
+        key: st.key,
+        label: st.label,
+        value: st.value,
+        strValue: st.strValue,
+        unit: null,
+      });
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    // Replace this season's tm-created players. Matched players attach to their
+    // canonical Telemetry rows and are never touched here.
+    await tx
+      .delete(playersTable)
+      .where(
+        sql`${playersTable.season} = ${season} AND ${playersTable.playerId} LIKE 'tm-%'`,
+      );
+    for (const batch of chunk([...createdPlayers.values()], 500)) {
+      await tx.insert(playersTable).values(batch);
+    }
+    await tx
+      .delete(playerStatsTable)
+      .where(
+        sql`${playerStatsTable.source} = 'trumedia' AND ${playerStatsTable.season} = ${season}`,
+      );
+    for (const batch of chunk(statRows, 1000)) {
+      await tx.insert(playerStatsTable).values(batch);
+    }
+  });
+
+  logger.info(
+    {
+      season,
+      fbsTeams: fbsTeams.length,
+      tmPlayers: collected.length,
+      matched,
+      playersCreated: createdPlayers.size,
+      statLines: statRows.length,
+    },
+    "TruMedia raw-stats ingest complete",
+  );
+  return { statLines: statRows.length, playersCreated: createdPlayers.size, matched };
+}
+
+/**
+ * Backfill TruMedia stats across a season range in the background. Players that
+ * match an existing Telemetry roster attach to that canonical row; everyone else
+ * gets a lightweight tm-<teamId>-<playerId> row, so all TruMedia players are
+ * captured for every season. Polls via the same progress/status as the main sync.
+ */
+export function startTrumediaBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
+  const season = toSeason;
+  if (syncing) {
+    return {
+      status: "running",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season,
+      message: "A sync is already running",
+    };
+  }
+  syncing = true;
+  progress = { phase: "Starting TruMedia backfill", processed: 0, total: 0 };
+  void performTrumediaBackfill(fromSeason, toSeason, trigger).catch((e) => {
+    logger.error({ err: (e as Error).message }, "TruMedia backfill crashed");
+  });
+  return {
+    status: "running",
+    playersSynced: 0,
+    teamsSynced: 0,
+    season,
+    message: `TruMedia backfill ${fromSeason}–${toSeason} started. This runs in the background and may take a while.`,
+  };
+}
+
+async function performTrumediaBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger,
+): Promise<void> {
+  let meta: { id: number } | undefined;
+  try {
+    if (!trumediaConfigured()) {
+      throw new Error("TruMedia is not configured");
+    }
+    [meta] = await db
+      .insert(syncMetaTable)
+      .values({ status: "running", season: toSeason, trigger })
+      .returning();
+
+    let totalStats = 0;
+    let totalCreated = 0;
+    let totalMatched = 0;
+    for (let season = fromSeason; season <= toSeason; season++) {
+      const r = await ingestTrumedia(season);
+      totalStats += r.statLines;
+      totalCreated += r.playersCreated;
+      totalMatched += r.matched;
+    }
+
+    const message = `TruMedia backfill ${fromSeason}–${toSeason}: ${totalStats} stat lines, ${totalCreated} historical players created, ${totalMatched} matched to existing players`;
+    await db
+      .update(syncMetaTable)
+      .set({
+        status: "success",
+        playersSynced: totalCreated,
+        message,
+        finishedAt: new Date(),
+      })
+      .where(sql`${syncMetaTable.id} = ${meta.id}`);
+    logger.info({ fromSeason, toSeason, totalStats, totalCreated }, "TruMedia backfill complete");
+  } catch (e) {
+    const message = (e as Error).message;
+    logger.error({ err: message }, "TruMedia backfill failed");
+    if (meta) {
+      await db
+        .update(syncMetaTable)
+        .set({ status: "error", message, finishedAt: new Date() })
+        .where(sql`${syncMetaTable.id} = ${meta.id}`)
+        .catch((err) =>
+          logger.error(
+            { err: (err as Error).message },
+            "Failed to record TruMedia backfill error",
+          ),
+        );
+    }
+  } finally {
+    syncing = false;
+    progress = { phase: "idle", processed: 0, total: 0 };
+  }
 }
 
 export async function getSourceStatuses(): Promise<
