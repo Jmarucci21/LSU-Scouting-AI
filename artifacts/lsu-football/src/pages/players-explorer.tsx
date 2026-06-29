@@ -11,6 +11,7 @@ import { Search } from "lucide-react";
 import { Link } from "wouter";
 import { useDebounce } from "@/hooks/use-debounce";
 import { SortableHeader } from "@/components/sortable-header";
+import { TeamBadge, useTeamLogos } from "@/components/team-badge";
 
 type Division = ListPlayersDivision | undefined;
 
@@ -35,6 +36,7 @@ export function PlayersExplorer() {
   const pageSize = 50;
 
   const { data: filters } = useGetFilters();
+  const teamLogos = useTeamLogos();
   const { data: listData, isLoading } = useListPlayers({
     season,
     team,
@@ -186,7 +188,9 @@ export function PlayersExplorer() {
                       </Link>
                     </td>
                     <td className="p-4 text-sm font-medium">{player.position}</td>
-                    <td className="p-4 text-sm text-muted-foreground">{player.team}</td>
+                    <td className="p-4 text-sm text-muted-foreground">
+                      <TeamBadge team={player.team} logo={player.team ? teamLogos.get(player.team) : undefined} />
+                    </td>
                     <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
                   </tr>
                 ))

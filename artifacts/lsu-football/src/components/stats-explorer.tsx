@@ -29,6 +29,7 @@ import {
 import { Search, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { SortableHeader } from "@/components/sortable-header";
+import { TeamBadge, useTeamLogos } from "@/components/team-badge";
 
 type CareerSortKey = "total" | "seasonsCount" | "name";
 type SeasonSortKey = "value" | "name" | "team";
@@ -118,6 +119,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const pageSize = 50;
 
   const { data: meta } = useGetStatsMeta({ season });
+  const teamLogos = useTeamLogos();
 
   const seasonParams = {
     source: sources.length ? sources.join(",") : undefined,
@@ -484,6 +486,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                         row={row}
                         isOpen={isOpen}
                         onToggle={() => toggleRow(id)}
+                        teamLogos={teamLogos}
                       />
                     );
                   })
@@ -536,7 +539,9 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                     </td>
                     <td className="p-4 text-sm font-medium">{row.position || "-"}</td>
                     {!fixedTeam && (
-                      <td className="p-4 text-sm text-muted-foreground">{row.team || "-"}</td>
+                      <td className="p-4 text-sm text-muted-foreground">
+                        <TeamBadge team={row.team} logo={row.team ? teamLogos.get(row.team) : undefined} />
+                      </td>
                     )}
                     <td className="p-4 text-sm text-muted-foreground">{sourceLabel(row.source)}</td>
                     <td className="p-4 text-sm">{row.label}</td>
@@ -597,11 +602,13 @@ function CareerRows({
   row,
   isOpen,
   onToggle,
+  teamLogos,
 }: {
   id: string;
   row: CareerStatRow;
   isOpen: boolean;
   onToggle: () => void;
+  teamLogos: Map<string, string>;
 }) {
   return (
     <>
@@ -627,7 +634,9 @@ function CareerRows({
             </Link>
           </div>
         </td>
-        <td className="p-4 text-sm text-muted-foreground">{row.latestTeam || "-"}</td>
+        <td className="p-4 text-sm text-muted-foreground">
+          <TeamBadge team={row.latestTeam} logo={row.latestTeam ? teamLogos.get(row.latestTeam) : undefined} />
+        </td>
         <td className="p-4 text-sm text-muted-foreground">{sourceLabel(row.source)}</td>
         <td className="p-4 text-sm">{row.label}</td>
         <td className="p-4 text-sm">
@@ -665,7 +674,9 @@ function CareerRows({
                   {row.breakdown.map((b) => (
                     <tr key={`${id}-${b.season}-${b.team ?? ""}`}>
                       <td className="py-1.5 font-medium text-foreground">{b.season}</td>
-                      <td className="py-1.5 text-muted-foreground">{b.team || "-"}</td>
+                      <td className="py-1.5 text-muted-foreground">
+                        <TeamBadge team={b.team} logo={b.team ? teamLogos.get(b.team) : undefined} />
+                      </td>
                       <td className="py-1.5 text-right font-semibold text-foreground">
                         {formatNumber(b.value, row.unit)}
                       </td>

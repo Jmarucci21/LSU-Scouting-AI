@@ -7,3 +7,4 @@
 - [Stats Explorer perf](stats-explorer-perf.md) — player_stats is ~17M rows; /stats needs (player_id,season) + (season,source,key,label) indexes; meta seasons/teams must come from the small players table, not distinct scans of player_stats.
 - [Career stats view perf](career-stats-perf.md) — 8M-row player_career_stats needs total/source/key btrees + pg_trgm GIN on nname; ORDER BY must be `nulls last` to match indexes (drizzle query desc()=NULLS FIRST mismatches); unfiltered total uses reltuples estimate + limit+1 paging; large-source count still ~19s.
 - [stats/meta perf + TruMedia curation](player-stats-meta-and-curation.md) — ANALYZE player_stats after bulk ingest or /stats/meta seq-scans + times out; fantasy exclusion must cover RecFP*/ADP*, not just ^Fant.
+- [Team logos](team-logos.md) — logos already in teams.logo (Telemetry csv_team_logo); render via client-side useListTeams map (TeamBadge/useTeamLogos), don't add logo to /players or /stats list APIs.
