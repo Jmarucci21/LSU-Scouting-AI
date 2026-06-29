@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { useListPlayers, useGetFilters } from "@workspace/api-client-react";
-import type { ListPlayersSort, ListPlayersOrder } from "@workspace/api-client-react";
+import type { ListPlayersSort, ListPlayersOrder, ListPlayersDivision } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,12 +11,23 @@ import { Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { useDebounce } from "@/hooks/use-debounce";
 
+type Division = ListPlayersDivision | undefined;
+
+const DIVISIONS: { value: Division; label: string }[] = [
+  { value: undefined, label: "All" },
+  { value: "fbs", label: "FBS" },
+  { value: "fcs", label: "FCS" },
+  { value: "power4", label: "Power 4" },
+];
+
 export function PlayersExplorer() {
   const { season, team } = useGlobalFilters();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   
-  const [posGroup, setPosGroup] = useState<string | undefined>();
+  const [positionGroup, setPositionGroup] = useState<string | undefined>();
+  const [division, setDivision] = useState<Division>(undefined);
+  const [conference, setConference] = useState<string | undefined>();
   const [sort, setSort] = useState<ListPlayersSort>("snaps");
   const [order, setOrder] = useState<ListPlayersOrder>("desc");
   const [page, setPage] = useState(1);
@@ -27,7 +38,9 @@ export function PlayersExplorer() {
     season,
     team,
     search: debouncedSearch || undefined,
-    posGroup,
+    positionGroup,
+    division,
+    conference,
     sort,
     order,
     page,
@@ -55,29 +68,65 @@ export function PlayersExplorer() {
         <h1 className="text-3xl font-black tracking-tight">Player Explorer</h1>
       </header>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-card p-4 rounded-lg border border-border shadow-sm">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input 
-            placeholder="Search players..." 
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="pl-9 bg-background"
-          />
+      <div className="flex flex-col gap-4 bg-card p-4 rounded-lg border border-border shadow-sm">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search players..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="pl-9 bg-background"
+            />
+          </div>
+
+          <div className="w-full md:w-48">
+            <Select value={positionGroup || "all"} onValueChange={(v) => { setPositionGroup(v === "all" ? undefined : v); setPage(1); }}>
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="All Positions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Positions</SelectItem>
+                {filters?.positionGroups?.map(pg => (
+                  <SelectItem key={pg.value} value={pg.value}>{pg.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:w-56">
+            <Select value={conference || "all"} onValueChange={(v) => { setConference(v === "all" ? undefined : v); setPage(1); }}>
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="All Conferences" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Conferences</SelectItem>
+                {filters?.conferences?.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        
-        <div className="w-full md:w-64">
-          <Select value={posGroup || "all"} onValueChange={(v) => { setPosGroup(v === "all" ? undefined : v); setPage(1); }}>
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="All Position Groups" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Pos Groups</SelectItem>
-              {filters?.posGroups?.map(pg => (
-                <SelectItem key={pg} value={pg}>{pg}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+        <div className="inline-flex rounded-md border border-border overflow-hidden self-start">
+          {DIVISIONS.map((d) => {
+            const active = division === d.value;
+            return (
+              <button
+                key={d.label}
+                type="button"
+                onClick={() => { setDivision(d.value); setPage(1); }}
+                className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

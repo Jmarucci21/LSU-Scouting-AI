@@ -150,12 +150,18 @@ export interface DashboardSummary {
   topByValue?: Player[];
 }
 
+export interface PositionGroupOption {
+  value: string;
+  label: string;
+}
+
 export interface FilterOptions {
   seasons: number[];
   teams: string[];
   conferences: string[];
   posGroups: string[];
   positions: string[];
+  positionGroups: PositionGroupOption[];
 }
 
 export interface SyncProgress {
@@ -345,20 +351,42 @@ export interface StatsMetaResponse {
   keysBySource: SourceKeys[];
   seasons: number[];
   teams: string[];
+  conferences: string[];
+  positionGroups: PositionGroupOption[];
 }
 
 export type ListPlayersParams = {
 search?: string;
 team?: string;
+/**
+ * Canonical conference name (FBS spellings are deduped).
+ */
 conference?: string;
 posGroup?: string;
 position?: string;
+/**
+ * Canonical scouting position group (e.g. QB, WR, EDGE).
+ */
+positionGroup?: string;
+/**
+ * Team scope derived from conference: fbs, fcs, or power4.
+ */
+division?: ListPlayersDivision;
 season?: number;
 sort?: ListPlayersSort;
 order?: ListPlayersOrder;
 page?: number;
 pageSize?: number;
 };
+
+export type ListPlayersDivision = typeof ListPlayersDivision[keyof typeof ListPlayersDivision];
+
+
+export const ListPlayersDivision = {
+  fbs: 'fbs',
+  fcs: 'fcs',
+  power4: 'power4',
+} as const;
 
 export type ListPlayersSort = typeof ListPlayersSort[keyof typeof ListPlayersSort];
 
@@ -386,6 +414,18 @@ export type ListStatsParams = {
 source?: string;
 season?: number;
 team?: string;
+/**
+ * Canonical conference name (FBS spellings are deduped).
+ */
+conference?: string;
+/**
+ * Canonical scouting position group (e.g. QB, WR, EDGE).
+ */
+positionGroup?: string;
+/**
+ * Team scope derived from conference: fbs, fcs, or power4.
+ */
+division?: ListStatsDivision;
 search?: string;
 /**
  * Single stat key or comma-separated list of stat keys.
@@ -394,6 +434,15 @@ key?: string;
 page?: number;
 pageSize?: number;
 };
+
+export type ListStatsDivision = typeof ListStatsDivision[keyof typeof ListStatsDivision];
+
+
+export const ListStatsDivision = {
+  fbs: 'fbs',
+  fcs: 'fcs',
+  power4: 'power4',
+} as const;
 
 export type ListCareerStatsParams = {
 /**

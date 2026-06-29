@@ -5,6 +5,7 @@
  * LSU Football player database API
  * OpenAPI spec version: 0.1.0
  */
+import type { PositionGroupOption } from './positionGroupOption';
 
 export interface FilterOptions {
   seasons: number[];
@@ -12,4 +13,5 @@ export interface FilterOptions {
   conferences: string[];
   posGroups: string[];
   positions: string[];
+  positionGroups: PositionGroupOption[];
 }

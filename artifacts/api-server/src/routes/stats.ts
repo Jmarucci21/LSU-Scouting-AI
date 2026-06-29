@@ -1,11 +1,31 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  notInArray,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import {
   db,
   playersTable,
   playerStatsTable,
   playerCareerStatsTable,
 } from "@workspace/db";
+import {
+  positionGroupMembers,
+  positionGroupOptions,
+  expandConference,
+  normalizeConference,
+  orderConferences,
+  fbsRawConferences,
+  power4RawConferences,
+} from "../lib/taxonomy";
 import {
   GetPlayerStatsParams,
   GetPlayerStatsResponse,
@@ -116,7 +136,18 @@ router.get("/stats", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { source, season, team, search, key, page, pageSize } = parsed.data;
+  const {
+    source,
+    season,
+    team,
+    conference,
+    positionGroup,
+    division,
+    search,
+    key,
+    page,
+    pageSize,
+  } = parsed.data;
 
   let effSeason = season ?? null;
   if (effSeason == null) {
@@ -145,6 +176,24 @@ router.get("/stats", async (req, res): Promise<void> => {
   else if (keyList.length > 1)
     conditions.push(inArray(playerStatsTable.key, keyList));
   if (team) conditions.push(eq(playersTable.team, team));
+  // `conference` is a canonical name; expand to its raw spellings before matching.
+  if (conference)
+    conditions.push(inArray(playersTable.conference, expandConference(conference)));
+  // `positionGroup` is a canonical scouting group; map it to its raw position abbrevs.
+  if (positionGroup) {
+    const members = positionGroupMembers(positionGroup);
+    if (members && members.length)
+      conditions.push(inArray(playersTable.position, members));
+  }
+  // `division` is derived from conference (FBS/FCS/Power 4).
+  if (division === "fbs") {
+    conditions.push(inArray(playersTable.conference, fbsRawConferences()));
+  } else if (division === "power4") {
+    conditions.push(inArray(playersTable.conference, power4RawConferences()));
+  } else if (division === "fcs") {
+    conditions.push(isNotNull(playersTable.conference));
+    conditions.push(notInArray(playersTable.conference, fbsRawConferences()));
+  }
   if (search) conditions.push(ilike(playersTable.playerName, `%${search}%`));
   const where = conditions.length ? and(...conditions) : undefined;
 
@@ -388,8 +437,30 @@ router.get("/stats/meta", async (req, res): Promise<void> => {
     .map((r) => r.team)
     .filter((t): t is string => !!t);
 
+  const confRows = await db
+    .selectDistinct({ conference: playersTable.conference })
+    .from(playersTable)
+    .where(
+      effSeason != null ? eq(playersTable.season, effSeason) : undefined,
+    );
+  const conferences = orderConferences([
+    ...new Set(
+      confRows
+        .map((r) => r.conference)
+        .filter((c): c is string => !!c)
+        .map((c) => normalizeConference(c)),
+    ),
+  ]);
+
   res.json(
-    GetStatsMetaResponse.parse({ sources, keysBySource, seasons, teams }),
+    GetStatsMetaResponse.parse({
+      sources,
+      keysBySource,
+      seasons,
+      teams,
+      conferences,
+      positionGroups: positionGroupOptions(),
+    }),
   );
 });
 

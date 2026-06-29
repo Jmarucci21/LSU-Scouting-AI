@@ -45,9 +45,17 @@ paths:
       parameters:
         - { name: search, in: query, required: false, schema: { type: string } }
         - { name: team, in: query, required: false, schema: { type: string } }
-        - { name: conference, in: query, required: false, schema: { type: string } }
+        - { name: conference, in: query, required: false, description: "Canonical conference name (FBS spellings are deduped).", schema: { type: string } }
         - { name: posGroup, in: query, required: false, schema: { type: string } }
         - { name: position, in: query, required: false, schema: { type: string } }
+        - { name: positionGroup, in: query, required: false, description: "Canonical scouting position group (e.g. QB, WR, EDGE).", schema: { type: string } }
+        - name: division
+          in: query
+          required: false
+          description: "Team scope derived from conference: fbs, fcs, or power4."
+          schema:
+            type: string
+            enum: [fbs, fcs, power4]
         - { name: season, in: query, required: false, schema: { type: integer } }
         - name: sort
           in: query
@@ -115,6 +123,15 @@ paths:
         - { name: source, in: query, required: false, description: "Single source or comma-separated list of sources.", schema: { type: string } }
         - { name: season, in: query, required: false, schema: { type: integer } }
         - { name: team, in: query, required: false, schema: { type: string } }
+        - { name: conference, in: query, required: false, description: "Canonical conference name (FBS spellings are deduped).", schema: { type: string } }
+        - { name: positionGroup, in: query, required: false, description: "Canonical scouting position group (e.g. QB, WR, EDGE).", schema: { type: string } }
+        - name: division
+          in: query
+          required: false
+          description: "Team scope derived from conference: fbs, fcs, or power4."
+          schema:
+            type: string
+            enum: [fbs, fcs, power4]
         - { name: search, in: query, required: false, schema: { type: string } }
         - { name: key, in: query, required: false, description: "Single stat key or comma-separated list of stat keys.", schema: { type: string } }
         - { name: page, in: query, required: false, schema: { type: integer } }
@@ -457,9 +474,15 @@ components:
         avgValue: { type: ["number", "null"] }
         topPlayerName: { type: ["string", "null"] }
         topPlayerWar: { type: ["number", "null"] }
+    PositionGroupOption:
+      type: object
+      required: [value, label]
+      properties:
+        value: { type: string }
+        label: { type: string }
     FilterOptions:
       type: object
-      required: [seasons, teams, conferences, posGroups, positions]
+      required: [seasons, teams, conferences, posGroups, positions, positionGroups]
       properties:
         seasons:
           type: array
@@ -476,6 +499,10 @@ components:
         positions:
           type: array
           items: { type: string }
+        positionGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionGroupOption"
     SyncStatus:
       type: object
       required: [status]
@@ -663,7 +690,7 @@ components:
             $ref: "#/components/schemas/StatKey"
     StatsMetaResponse:
       type: object
-      required: [sources, keysBySource, seasons, teams]
+      required: [sources, keysBySource, seasons, teams, conferences, positionGroups]
       properties:
         sources:
           type: array
@@ -678,3 +705,10 @@ components:
         teams:
           type: array
           items: { type: string }
+        conferences:
+          type: array
+          items: { type: string }
+        positionGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionGroupOption"

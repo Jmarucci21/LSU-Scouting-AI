@@ -24,9 +24,11 @@ export const HealthCheckResponse = zod.object({
 export const ListPlayersQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
   "team": zod.coerce.string().optional(),
-  "conference": zod.coerce.string().optional(),
+  "conference": zod.coerce.string().optional().describe('Canonical conference name (FBS spellings are deduped).'),
   "posGroup": zod.coerce.string().optional(),
   "position": zod.coerce.string().optional(),
+  "positionGroup": zod.coerce.string().optional().describe('Canonical scouting position group (e.g. QB, WR, EDGE).'),
+  "division": zod.enum(['fbs', 'fcs', 'power4']).optional().describe('Team scope derived from conference: fbs, fcs, or power4.'),
   "season": zod.coerce.number().optional(),
   "sort": zod.enum(['war', 'twar', 'player_value', 'name', 'snaps']).optional(),
   "order": zod.enum(['asc', 'desc']).optional(),
@@ -127,6 +129,9 @@ export const ListStatsQueryParams = zod.object({
   "source": zod.coerce.string().optional().describe('Single source or comma-separated list of sources.'),
   "season": zod.coerce.number().optional(),
   "team": zod.coerce.string().optional(),
+  "conference": zod.coerce.string().optional().describe('Canonical conference name (FBS spellings are deduped).'),
+  "positionGroup": zod.coerce.string().optional().describe('Canonical scouting position group (e.g. QB, WR, EDGE).'),
+  "division": zod.enum(['fbs', 'fcs', 'power4']).optional().describe('Team scope derived from conference: fbs, fcs, or power4.'),
   "search": zod.coerce.string().optional(),
   "key": zod.coerce.string().optional().describe('Single stat key or comma-separated list of stat keys.'),
   "page": zod.coerce.number().optional(),
@@ -211,7 +216,12 @@ export const GetStatsMetaResponse = zod.object({
 }))
 })),
   "seasons": zod.array(zod.number()),
-  "teams": zod.array(zod.string())
+  "teams": zod.array(zod.string()),
+  "conferences": zod.array(zod.string()),
+  "positionGroups": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string()
+}))
 })
 
 
@@ -403,7 +413,11 @@ export const GetFiltersResponse = zod.object({
   "teams": zod.array(zod.string()),
   "conferences": zod.array(zod.string()),
   "posGroups": zod.array(zod.string()),
-  "positions": zod.array(zod.string())
+  "positions": zod.array(zod.string()),
+  "positionGroups": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string()
+}))
 })
 
 

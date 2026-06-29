@@ -10,6 +10,7 @@ import type {
   StatRow,
   StatsMetaResponse,
   CareerStatRow,
+  ListStatsDivision,
 } from "@workspace/api-client-react";
 import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -18,6 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSelect } from "@/components/multi-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search, ChevronRight, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
@@ -32,6 +40,15 @@ const SOURCE_LABELS: Record<string, string> = {
 function sourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source;
 }
+
+type Division = ListStatsDivision | undefined;
+
+const DIVISIONS: { value: Division; label: string }[] = [
+  { value: undefined, label: "All" },
+  { value: "fbs", label: "FBS" },
+  { value: "fcs", label: "FCS" },
+  { value: "power4", label: "Power 4" },
+];
 
 // Deduped union of stat keys across the given sources (or every source when
 // none are selected), sorted by label.
@@ -83,6 +100,9 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
 
   const [sources, setSources] = useState<string[]>([]);
   const [statKeys, setStatKeys] = useState<string[]>([]);
+  const [positionGroup, setPositionGroup] = useState<string | undefined>();
+  const [division, setDivision] = useState<Division>(undefined);
+  const [conference, setConference] = useState<string | undefined>();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
@@ -95,6 +115,11 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
     source: sources.length ? sources.join(",") : undefined,
     season,
     team: fixedTeam,
+    // Conference/division are team-level scopes — meaningless on a team-scoped
+    // page (a single team has one conference), so only send them globally.
+    conference: fixedTeam ? undefined : conference,
+    division: fixedTeam ? undefined : division,
+    positionGroup,
     search: debouncedSearch || undefined,
     key: statKeys.length ? statKeys.join(",") : undefined,
     page,
@@ -162,7 +187,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
 
   return (
     <div className="space-y-4 flex flex-col flex-1 min-h-0">
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-card p-4 rounded-lg border border-border shadow-sm">
+      <div className="flex flex-col md:flex-row md:flex-wrap gap-4 items-center bg-card p-4 rounded-lg border border-border shadow-sm">
         {careerAllowed && (
           <div className="inline-flex rounded-md border border-border overflow-hidden shrink-0">
             <button
@@ -242,6 +267,83 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
             disabled={keyOptions.length === 0}
           />
         </div>
+
+        {/* Position / team-scope filters apply to By Season rows only. The
+            Career table is name-based with no position or conference, so these
+            are hidden in Career mode (and conference/division are hidden on a
+            team-scoped page, where the team already fixes them). */}
+        {!isCareer && (
+          <div className="w-full md:w-44">
+            <Select
+              value={positionGroup || "all"}
+              onValueChange={(v) => {
+                setPositionGroup(v === "all" ? undefined : v);
+                resetPaging();
+              }}
+            >
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="All Positions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Positions</SelectItem>
+                {meta?.positionGroups?.map((pg) => (
+                  <SelectItem key={pg.value} value={pg.value}>
+                    {pg.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {!isCareer && !fixedTeam && (
+          <div className="w-full md:w-52">
+            <Select
+              value={conference || "all"}
+              onValueChange={(v) => {
+                setConference(v === "all" ? undefined : v);
+                resetPaging();
+              }}
+            >
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="All Conferences" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Conferences</SelectItem>
+                {meta?.conferences?.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {!isCareer && !fixedTeam && (
+          <div className="inline-flex rounded-md border border-border overflow-hidden shrink-0">
+            {DIVISIONS.map((d) => {
+              const active = division === d.value;
+              return (
+                <button
+                  key={d.label}
+                  type="button"
+                  onClick={() => {
+                    setDivision(d.value);
+                    resetPaging();
+                  }}
+                  className={`px-3 py-2 text-sm font-semibold transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <Card className="flex-1 overflow-hidden shadow-sm flex flex-col border-border min-h-0">

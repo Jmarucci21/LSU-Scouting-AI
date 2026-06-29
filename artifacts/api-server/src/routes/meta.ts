@@ -2,6 +2,11 @@ import { Router, type IRouter } from "express";
 import { asc, isNotNull, sql } from "drizzle-orm";
 import { db, playersTable } from "@workspace/db";
 import { GetFiltersResponse } from "@workspace/api-zod";
+import {
+  positionGroupOptions,
+  normalizeConference,
+  orderConferences,
+} from "../lib/taxonomy";
 
 const router: IRouter = Router();
 
@@ -35,13 +40,21 @@ router.get("/meta/filters", async (_req, res): Promise<void> => {
     .where(isNotNull(playersTable.position))
     .orderBy(asc(playersTable.position));
 
+  // Dedupe duplicate conference spellings into canonical names, FBS-first.
+  const conferences = orderConferences([
+    ...new Set(
+      confRows.map((r) => normalizeConference(r.conference as string)),
+    ),
+  ]);
+
   res.json(
     GetFiltersResponse.parse({
       seasons: seasonsRows.map((r) => r.season),
       teams: teamsRows.map((r) => r.team as string),
-      conferences: confRows.map((r) => r.conference as string),
+      conferences,
       posGroups: posGroupRows.map((r) => r.posGroup as string),
       positions: positionRows.map((r) => r.position as string),
+      positionGroups: positionGroupOptions(),
     }),
   );
 });

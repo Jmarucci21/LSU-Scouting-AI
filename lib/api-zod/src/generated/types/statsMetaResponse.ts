@@ -5,6 +5,7 @@
  * LSU Football player database API
  * OpenAPI spec version: 0.1.0
  */
+import type { PositionGroupOption } from './positionGroupOption';
 import type { SourceKeys } from './sourceKeys';
 
 export interface StatsMetaResponse {
@@ -12,4 +13,6 @@ export interface StatsMetaResponse {
   keysBySource: SourceKeys[];
   seasons: number[];
   teams: string[];
+  conferences: string[];
+  positionGroups: PositionGroupOption[];
 }

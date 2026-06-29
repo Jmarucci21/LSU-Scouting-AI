@@ -1,5 +1,16 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  notInArray,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { db, playersTable, playerGradesTable } from "@workspace/db";
 import {
   ListPlayersQueryParams,
@@ -8,6 +19,12 @@ import {
   GetPlayerResponse,
 } from "@workspace/api-zod";
 import { mapPlayer } from "../lib/serialize";
+import {
+  positionGroupMembers,
+  expandConference,
+  fbsRawConferences,
+  power4RawConferences,
+} from "../lib/taxonomy";
 
 const router: IRouter = Router();
 
@@ -23,6 +40,8 @@ router.get("/players", async (req, res): Promise<void> => {
     conference,
     posGroup,
     position,
+    positionGroup,
+    division,
     season,
     sort,
     order,
@@ -42,9 +61,26 @@ router.get("/players", async (req, res): Promise<void> => {
   const conditions: SQL[] = [];
   if (search) conditions.push(ilike(playersTable.playerName, `%${search}%`));
   if (team) conditions.push(eq(playersTable.team, team));
-  if (conference) conditions.push(eq(playersTable.conference, conference));
+  // `conference` is a canonical name; expand to its raw spellings before matching.
+  if (conference)
+    conditions.push(inArray(playersTable.conference, expandConference(conference)));
   if (posGroup) conditions.push(eq(playersTable.posGroup, posGroup));
   if (position) conditions.push(eq(playersTable.position, position));
+  // `positionGroup` is a canonical scouting group; map it to its raw position abbrevs.
+  if (positionGroup) {
+    const members = positionGroupMembers(positionGroup);
+    if (members && members.length)
+      conditions.push(inArray(playersTable.position, members));
+  }
+  // `division` is derived from conference (FBS/FCS/Power 4).
+  if (division === "fbs") {
+    conditions.push(inArray(playersTable.conference, fbsRawConferences()));
+  } else if (division === "power4") {
+    conditions.push(inArray(playersTable.conference, power4RawConferences()));
+  } else if (division === "fcs") {
+    conditions.push(isNotNull(playersTable.conference));
+    conditions.push(notInArray(playersTable.conference, fbsRawConferences()));
+  }
   if (effSeason != null) conditions.push(eq(playersTable.season, effSeason));
 
   const where = conditions.length ? and(...conditions) : undefined;

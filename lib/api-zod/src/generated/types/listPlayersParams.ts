@@ -5,15 +5,27 @@
  * LSU Football player database API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListPlayersDivision } from './listPlayersDivision';
 import type { ListPlayersOrder } from './listPlayersOrder';
 import type { ListPlayersSort } from './listPlayersSort';
 
 export type ListPlayersParams = {
 search?: string;
 team?: string;
+/**
+ * Canonical conference name (FBS spellings are deduped).
+ */
 conference?: string;
 posGroup?: string;
 position?: string;
+/**
+ * Canonical scouting position group (e.g. QB, WR, EDGE).
+ */
+positionGroup?: string;
+/**
+ * Team scope derived from conference: fbs, fcs, or power4.
+ */
+division?: ListPlayersDivision;
 season?: number;
 sort?: ListPlayersSort;
 order?: ListPlayersOrder;
