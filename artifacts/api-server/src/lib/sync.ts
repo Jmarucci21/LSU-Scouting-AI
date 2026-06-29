@@ -748,6 +748,14 @@ export async function buildCareerStats(): Promise<number> {
   // cannot use a btree); ensure the extension exists before the schema's
   // gin_trgm_ops index is created/used.
   await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+  // Refresh planner statistics on the fact table before the heavy career INSERT
+  // reads it, and so downstream endpoints stay fast. Ingests bulk-insert millions
+  // of rows into player_stats without updating its stats; stale n_distinct makes
+  // the planner abandon the (season, source, key, label) index-only scan for
+  // /stats/meta in favor of a full seq scan + on-disk sort (which times out once
+  // a season grows past a few million rows). ANALYZE is cheap relative to the
+  // career rebuild and must run outside the transaction below.
+  await db.execute(sql`ANALYZE player_stats`);
   const total = await db.transaction(async (tx) => {
     await tx.execute(sql`TRUNCATE TABLE player_career_stats RESTART IDENTITY`);
     // Rate/percentage/per-game stats (Comp%, PPG, EPA/Play, passer rating, ...)

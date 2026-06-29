@@ -151,15 +151,11 @@ router.get("/stats", async (req, res): Promise<void> => {
     pageSize,
   } = parsed.data;
 
-  let effSeason = season ?? null;
-  if (effSeason == null) {
-    const [row] = await db
-      .select({
-        season: sql<number | null>`max(${playerStatsTable.season})::int`,
-      })
-      .from(playerStatsTable);
-    effSeason = row?.season ?? null;
-  }
+  // An omitted `season` means the user picked "All Seasons" — leave it null so
+  // no season filter is applied and rows from every season are returned (the
+  // search/source/key/etc. filters still narrow the set). Do NOT fall back to
+  // the latest season here, or "All Seasons" would silently hide older seasons.
+  const effSeason = season ?? null;
 
   // `source` and `key` accept a single value or a comma-separated list
   // (the explorer dropdowns are multi-select).

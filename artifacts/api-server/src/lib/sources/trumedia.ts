@@ -33,7 +33,30 @@ type CustomQueryResponse = {
 };
 
 const TM_TIMEOUT_MS = 60_000;
-const TM_COLUMNS = TRUMEDIA_STATS.map((s) => `[${s.abbrev}]`).join(",");
+// TruMedia 400s (414 at the edge) if the request URI is too large, and the full
+// curated column set (~1.7k columns) blows well past that limit. Split the
+// columns into chunks that each stay near the proven-safe request size (~9KB of
+// column text, ~720 columns) and fetch + merge per player. `[G]`/identity
+// columns are returned automatically on every query, so each chunk still yields
+// playerId/fullName/G alongside its slice of stat columns.
+const TM_COLUMN_CHUNK_BUDGET = 9000;
+const TM_COLUMN_CHUNKS: string[] = (() => {
+  const chunks: string[] = [];
+  let buf: string[] = [];
+  let len = 0;
+  for (const s of TRUMEDIA_STATS) {
+    const tok = `[${s.abbrev}]`;
+    if (len + tok.length + 1 > TM_COLUMN_CHUNK_BUDGET && buf.length) {
+      chunks.push(buf.join(","));
+      buf = [];
+      len = 0;
+    }
+    buf.push(tok);
+    len += tok.length + 1;
+  }
+  if (buf.length) chunks.push(buf.join(","));
+  return chunks;
+})();
 
 async function customQuery(
   dataFormat: string,
@@ -95,53 +118,63 @@ export async function fetchTrumediaTeamPlayers(
   season: number,
   team: TrumediaTeam,
 ): Promise<TrumediaPlayer[]> {
-  const body = await customQuery("PlayerSeasons", {
-    seasonYear: String(season),
-    team: String(team.teamId),
-    columns: TM_COLUMNS,
-  });
-  const header = body.header ?? [];
-  const idx = new Map(header.map((h, i) => [h.columnId, i]));
-  const iId = idx.get("playerId");
-  const iName = idx.get("fullName");
-  const iG = idx.get("G");
-  if (iId == null || iName == null) return [];
-  const rows = body.rows ?? [];
-  const out: TrumediaPlayer[] = [];
-  for (const r of rows) {
-    const rawId = r[iId];
-    const name = r[iName];
-    if (rawId == null || typeof name !== "string") continue;
-    const stats: TrumediaStat[] = [];
-    for (const def of TRUMEDIA_STATS) {
-      const i = idx.get(def.abbrev);
-      if (i == null) continue;
-      const v = r[i];
-      if (v == null || v === false || v === "") continue;
-      if (typeof v === "number") {
-        // Skip structural zeros: RAW returns 0 for inapplicable stats (e.g. a
-        // receiver's passing columns), which would otherwise bloat the table
-        // ~5x with meaningless rows. We store only present, non-zero values
-        // (sparse representation, consistent with the other sources); absence
-        // can be imputed as 0 downstream.
-        if (!Number.isFinite(v) || v === 0) continue;
-        stats.push({ key: def.abbrev, label: def.label, category: def.category, value: v, strValue: null });
-      } else if (typeof v === "string") {
-        stats.push({ key: def.abbrev, label: def.label, category: def.category, value: null, strValue: v });
+  // The full column set exceeds the request URI limit, so we issue one query per
+  // column chunk and merge the resulting stat lines per player (keyed by
+  // playerId). Each chunk response carries the identity columns again.
+  const byId = new Map<string, TrumediaPlayer>();
+  for (const columns of TM_COLUMN_CHUNKS) {
+    const body = await customQuery("PlayerSeasons", {
+      seasonYear: String(season),
+      team: String(team.teamId),
+      columns,
+    });
+    const header = body.header ?? [];
+    const idx = new Map(header.map((h, i) => [h.columnId, i]));
+    const iId = idx.get("playerId");
+    const iName = idx.get("fullName");
+    const iG = idx.get("G");
+    if (iId == null || iName == null) continue;
+    const rows = body.rows ?? [];
+    for (const r of rows) {
+      const rawId = r[iId];
+      const name = r[iName];
+      if (rawId == null || typeof name !== "string") continue;
+      const pid = String(rawId);
+      let player = byId.get(pid);
+      if (!player) {
+        player = {
+          playerId: pid,
+          playerName: name,
+          teamId: team.teamId,
+          teamFullName: team.fullName,
+          teamAbbrev: team.abbrev,
+          games: iG != null && typeof r[iG] === "number" ? (r[iG] as number) : null,
+          stats: [],
+        };
+        byId.set(pid, player);
+      } else if (player.games == null && iG != null && typeof r[iG] === "number") {
+        player.games = r[iG] as number;
+      }
+      for (const def of TRUMEDIA_STATS) {
+        const i = idx.get(def.abbrev);
+        if (i == null) continue;
+        const v = r[i];
+        if (v == null || v === false || v === "") continue;
+        if (typeof v === "number") {
+          // Skip structural zeros: RAW returns 0 for inapplicable stats (e.g. a
+          // receiver's passing columns), which would otherwise bloat the table
+          // ~5x with meaningless rows. We store only present, non-zero values
+          // (sparse representation, consistent with the other sources); absence
+          // can be imputed as 0 downstream.
+          if (!Number.isFinite(v) || v === 0) continue;
+          player.stats.push({ key: def.abbrev, label: def.label, category: def.category, value: v, strValue: null });
+        } else if (typeof v === "string") {
+          player.stats.push({ key: def.abbrev, label: def.label, category: def.category, value: null, strValue: v });
+        }
       }
     }
-    if (stats.length === 0) continue;
-    out.push({
-      playerId: String(rawId),
-      playerName: name,
-      teamId: team.teamId,
-      teamFullName: team.fullName,
-      teamAbbrev: team.abbrev,
-      games: iG != null && typeof r[iG] === "number" ? (r[iG] as number) : null,
-      stats,
-    });
   }
-  return out;
+  return [...byId.values()].filter((p) => p.stats.length > 0);
 }
 
 export const TRUMEDIA_STAT_COUNT = TRUMEDIA_STATS.length;
