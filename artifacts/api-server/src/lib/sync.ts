@@ -34,7 +34,12 @@ import {
   fetchTrumediaTeamPlayers,
 } from "./sources/trumedia";
 import { pffConfigured, checkPff } from "./sources/pff";
-import { fetchEspnTeams, fetchEspnRoster, type EspnTeam } from "./sources/espn";
+import {
+  fetchEspnTeams,
+  fetchEspnRoster,
+  fetchEspnRosterForSeason,
+  type EspnTeam,
+} from "./sources/espn";
 import { expandConference } from "./taxonomy";
 
 let syncing = false;
@@ -1198,7 +1203,9 @@ async function performTrumediaBackfill(
 async function ingestEspnPhotos(
   season: number,
   scope?: { team?: string; conference?: string },
+  opts?: { historical?: boolean },
 ): Promise<number> {
+  const historical = opts?.historical ?? false;
   progress = { phase: "ESPN photos: fetching teams", processed: 0, total: 0 };
   const espnTeams = await fetchEspnTeams();
   if (espnTeams.length === 0) return 0;
@@ -1255,13 +1262,19 @@ async function ingestEspnPhotos(
   const photoById = new Map<string, string>();
   let processed = 0;
   const total = espnTeams.length;
-  progress = { phase: "ESPN photos: matching rosters", processed, total };
-  await mapPool(espnTeams, 8, async (t) => {
+  const phase = `ESPN photos: matching rosters${historical ? ` (${season})` : ""}`;
+  progress = { phase, processed, total };
+  // Historical rosters resolve one request per player, so use a smaller team
+  // pool to keep total concurrency against ESPN reasonable.
+  const teamConcurrency = historical ? 4 : 8;
+  await mapPool(espnTeams, teamConcurrency, async (t) => {
     try {
       const school = resolveSchool(t);
       const m = school ? bySchool.get(school) : undefined;
       if (m) {
-        const roster = await fetchEspnRoster(t.id);
+        const roster = historical
+          ? await fetchEspnRosterForSeason(t.id, season)
+          : await fetchEspnRoster(t.id);
         for (const rp of roster) {
           const pid = m.get(normName(rp.name));
           if (pid && !photoById.has(pid)) photoById.set(pid, rp.photoUrl);
@@ -1274,7 +1287,7 @@ async function ingestEspnPhotos(
       );
     } finally {
       processed += 1;
-      progress = { phase: "ESPN photos: matching rosters", processed, total };
+      progress = { phase, processed, total };
     }
   });
 
@@ -1372,6 +1385,84 @@ async function performEspnPhotos(
             "Failed to record ESPN photo sync error",
           ),
         );
+    }
+  } finally {
+    syncing = false;
+    progress = { phase: "idle", processed: 0, total: 0 };
+  }
+}
+
+export function startEspnBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
+  if (syncing) {
+    return {
+      status: "running",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season: toSeason,
+      message: "A sync is already running",
+    };
+  }
+  syncing = true;
+  progress = { phase: "Starting ESPN photo backfill", processed: 0, total: 0 };
+  void performEspnBackfill(fromSeason, toSeason, trigger).catch((e) => {
+    logger.error({ err: (e as Error).message }, "ESPN photo backfill crashed");
+  });
+  return {
+    status: "running",
+    playersSynced: 0,
+    teamsSynced: 0,
+    season: toSeason,
+    message: `ESPN photo backfill started for ${fromSeason}-${toSeason}. This runs in the background.`,
+  };
+}
+
+async function performEspnBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger,
+): Promise<void> {
+  try {
+    for (let season = fromSeason; season <= toSeason; season += 1) {
+      let meta: { id: number } | undefined;
+      try {
+        [meta] = await db
+          .insert(syncMetaTable)
+          .values({ status: "running", season, trigger })
+          .returning();
+        const matched = await ingestEspnPhotos(season, undefined, {
+          historical: true,
+        });
+        const message = `ESPN photos (historical): matched ${matched} players for ${season}`;
+        await db
+          .update(syncMetaTable)
+          .set({
+            status: "success",
+            playersSynced: matched,
+            message,
+            finishedAt: new Date(),
+          })
+          .where(sql`${syncMetaTable.id} = ${meta.id}`);
+        logger.info({ season, matched }, "ESPN photo backfill season complete");
+      } catch (e) {
+        const message = (e as Error).message;
+        logger.error({ season, err: message }, "ESPN photo backfill season failed");
+        if (meta) {
+          await db
+            .update(syncMetaTable)
+            .set({ status: "error", message, finishedAt: new Date() })
+            .where(sql`${syncMetaTable.id} = ${meta.id}`)
+            .catch((err) =>
+              logger.error(
+                { err: (err as Error).message },
+                "Failed to record ESPN photo backfill error",
+              ),
+            );
+        }
+      }
     }
   } finally {
     syncing = false;

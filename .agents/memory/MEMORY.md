@@ -9,3 +9,4 @@
 - [stats/meta perf + TruMedia curation](player-stats-meta-and-curation.md) — ANALYZE player_stats after bulk ingest or /stats/meta seq-scans + times out; fantasy exclusion must cover RecFP*/ADP*, not just ^Fant.
 - [Team logos](team-logos.md) — logos already in teams.logo (Telemetry csv_team_logo); render via client-side useListTeams map (TeamBadge/useTeamLogos), don't add logo to /players or /stats list APIs.
 - [Drizzle bulk update with JS arrays](drizzle-bulk-update.md) — drizzle expands an interpolated JS array into `$1,$2,...` (not a pg array), so `unnest(${arr}::text[])` fails at runtime; use a VALUES list via sql.join for bulk UPDATE…FROM.
+- [ESPN headshots site vs core API](espn-headshots.md) — site API = current roster only; core API (sports.core) = historical per-season rosters but $ref-per-athlete; deterministic espncdn URL; match by school+name.

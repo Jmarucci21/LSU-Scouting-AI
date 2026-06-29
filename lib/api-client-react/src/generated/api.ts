@@ -1423,3 +1423,73 @@ export const useRunEspnPhotos = <TError = ErrorType<Error>,
       return useMutation(getRunEspnPhotosMutationOptions(options));
     }
 
+export const getRunEspnBackfillUrl = () => {
+
+
+
+
+  return `/api/sync/espn/backfill`
+}
+
+/**
+ * @summary Backfill ESPN player headshots across a range of past seasons
+ */
+export const runEspnBackfill = async (trumediaBackfillInput?: TrumediaBackfillInput, options?: RequestInit): Promise<SyncStatus> => {
+
+  return customFetch<SyncStatus>(getRunEspnBackfillUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trumediaBackfillInput)
+  }
+);}
+
+
+
+
+export const getRunEspnBackfillMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runEspnBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runEspnBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext> => {
+
+const mutationKey = ['runEspnBackfill'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runEspnBackfill>>, {data?: BodyType<TrumediaBackfillInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runEspnBackfill(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunEspnBackfillMutationResult = NonNullable<Awaited<ReturnType<typeof runEspnBackfill>>>
+    export type RunEspnBackfillMutationBody = BodyType<TrumediaBackfillInput> | undefined
+    export type RunEspnBackfillMutationError = ErrorType<Error>
+
+    /**
+ * @summary Backfill ESPN player headshots across a range of past seasons
+ */
+export const useRunEspnBackfill = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runEspnBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runEspnBackfill>>,
+        TError,
+        {data?: BodyType<TrumediaBackfillInput>},
+        TContext
+      > => {
+      return useMutation(getRunEspnBackfillMutationOptions(options));
+    }
+

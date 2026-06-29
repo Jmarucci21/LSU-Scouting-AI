@@ -369,6 +369,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/espn/backfill:
+    post:
+      operationId: runEspnBackfill
+      tags: [sync]
+      summary: Backfill ESPN player headshots across a range of past seasons
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrumediaBackfillInput"
+      responses:
+        "200":
+          description: ESPN photo backfill started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "503":
+          description: External source unavailable or not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:

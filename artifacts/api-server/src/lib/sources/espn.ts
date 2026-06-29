@@ -1,5 +1,7 @@
 const ESPN_BASE =
   "https://site.api.espn.com/apis/site/v2/sports/football/college-football";
+const ESPN_CORE_BASE =
+  "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football";
 const ESPN_TIMEOUT_MS = 20_000;
 
 export type EspnTeam = {
@@ -100,5 +102,76 @@ export async function fetchEspnRoster(
       photoUrl: href,
     });
   }
+  return players;
+}
+
+type CoreRefList = {
+  pageCount?: number;
+  items?: { $ref?: string }[];
+};
+
+type CoreAthlete = {
+  id?: string | number;
+  fullName?: string;
+  position?: { abbreviation?: string };
+  headshot?: { href?: string };
+};
+
+async function mapPoolLocal<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  let i = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+}
+
+/**
+ * Fetch a team's roster for a PAST season via ESPN's "core" API. Unlike the
+ * site API (current roster only), the core API exposes per-season rosters going
+ * back years. It returns athlete references that must each be resolved to get the
+ * name + headshot, so this is heavier than the current-season path (one request
+ * per player). Only players that have a headshot are returned. Resolving a single
+ * athlete is best-effort: a failure skips just that player. Team ids are stable
+ * across seasons, so the same ids from `fetchEspnTeams()` work here.
+ */
+export async function fetchEspnRosterForSeason(
+  teamId: string,
+  season: number,
+): Promise<EspnRosterPlayer[]> {
+  const refs: string[] = [];
+  let page = 1;
+  let pageCount = 1;
+  do {
+    const j = (await getJson(
+      `${ESPN_CORE_BASE}/seasons/${season}/teams/${teamId}/athletes?limit=200&page=${page}`,
+    )) as CoreRefList;
+    pageCount = j?.pageCount ?? 1;
+    for (const it of j?.items ?? []) if (it?.$ref) refs.push(it.$ref);
+    page += 1;
+  } while (page <= pageCount);
+
+  const players: EspnRosterPlayer[] = [];
+  await mapPoolLocal(refs, 8, async (ref) => {
+    try {
+      const a = (await getJson(ref)) as CoreAthlete;
+      const href = a?.headshot?.href;
+      if (!a?.id || !a?.fullName || !href) return;
+      players.push({
+        espnId: String(a.id),
+        name: a.fullName,
+        position: a?.position?.abbreviation ?? null,
+        photoUrl: href,
+      });
+    } catch {
+      // skip a single unresolvable athlete
+    }
+  });
   return players;
 }
