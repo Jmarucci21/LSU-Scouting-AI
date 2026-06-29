@@ -15,4 +15,6 @@ export const ListPlayersSort = {
   player_value: 'player_value',
   name: 'name',
   snaps: 'snaps',
+  position: 'position',
+  team: 'team',
 } as const;

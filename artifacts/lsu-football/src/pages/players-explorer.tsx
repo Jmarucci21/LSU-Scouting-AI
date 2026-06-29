@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Search } from "lucide-react";
 import { Link } from "wouter";
 import { useDebounce } from "@/hooks/use-debounce";
+import { SortableHeader } from "@/components/sortable-header";
 
 type Division = ListPlayersDivision | undefined;
 
@@ -47,19 +48,16 @@ export function PlayersExplorer() {
     pageSize
   });
 
+  // Toggle direction on the active column, otherwise switch to it with a
+  // sensible default (text columns A→Z, numeric columns high→low).
   const toggleSort = (newSort: ListPlayersSort) => {
     if (sort === newSort) {
       setOrder(order === "desc" ? "asc" : "desc");
     } else {
       setSort(newSort);
-      setOrder("desc");
+      setOrder(newSort === "snaps" ? "desc" : "asc");
     }
     setPage(1);
-  };
-
-  const renderSortIcon = (column: ListPlayersSort) => {
-    if (sort !== column) return null;
-    return order === "desc" ? <ChevronDown className="w-4 h-4 inline" /> : <ChevronUp className="w-4 h-4 inline" />;
   };
 
   return (
@@ -135,10 +133,31 @@ export function PlayersExplorer() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/50 text-muted-foreground text-sm uppercase tracking-wider">
-                <th className="p-4 font-semibold cursor-pointer hover:bg-muted" onClick={() => toggleSort("name")}>Player {renderSortIcon("name")}</th>
-                <th className="p-4 font-semibold">Pos</th>
-                <th className="p-4 font-semibold">Team</th>
-                <th className="p-4 font-semibold text-right cursor-pointer hover:bg-muted" onClick={() => toggleSort("snaps")}>Snaps {renderSortIcon("snaps")}</th>
+                <SortableHeader
+                  label="Player"
+                  active={sort === "name"}
+                  order={order}
+                  onClick={() => toggleSort("name")}
+                />
+                <SortableHeader
+                  label="Pos"
+                  active={sort === "position"}
+                  order={order}
+                  onClick={() => toggleSort("position")}
+                />
+                <SortableHeader
+                  label="Team"
+                  active={sort === "team"}
+                  order={order}
+                  onClick={() => toggleSort("team")}
+                />
+                <SortableHeader
+                  label="Snaps"
+                  align="right"
+                  active={sort === "snaps"}
+                  order={order}
+                  onClick={() => toggleSort("snaps")}
+                />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

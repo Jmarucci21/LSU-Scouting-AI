@@ -30,7 +30,7 @@ export const ListPlayersQueryParams = zod.object({
   "positionGroup": zod.coerce.string().optional().describe('Canonical scouting position group (e.g. QB, WR, EDGE).'),
   "division": zod.enum(['fbs', 'fcs', 'power4']).optional().describe('Team scope derived from conference: fbs, fcs, or power4.'),
   "season": zod.coerce.number().optional(),
-  "sort": zod.enum(['war', 'twar', 'player_value', 'name', 'snaps']).optional(),
+  "sort": zod.enum(['war', 'twar', 'player_value', 'name', 'snaps', 'position', 'team']).optional(),
   "order": zod.enum(['asc', 'desc']).optional(),
   "page": zod.coerce.number().optional(),
   "pageSize": zod.coerce.number().optional()

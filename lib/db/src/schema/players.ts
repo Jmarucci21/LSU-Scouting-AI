@@ -5,6 +5,7 @@ import {
   real,
   timestamp,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -34,7 +35,12 @@ export const playersTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [uniqueIndex("players_player_id_season_key").on(t.playerId, t.season)],
+  (t) => [
+    uniqueIndex("players_player_id_season_key").on(t.playerId, t.season),
+    // Supports the team-scoped roster list (filter by season + team, then sort)
+    // served from the players endpoint.
+    index("players_season_team_idx").on(t.season, t.team),
+  ],
 );
 
 export const insertPlayerSchema = createInsertSchema(playersTable).omit({

@@ -1,14 +1,42 @@
+import { useState } from "react";
 import { useRoute, Link } from "wouter";
-import { useGetTeam, getGetTeamQueryKey } from "@workspace/api-client-react";
+import {
+  useGetTeam,
+  getGetTeamQueryKey,
+  useListPlayers,
+  getListPlayersQueryKey,
+} from "@workspace/api-client-react";
+import type { ListPlayersSort, ListPlayersOrder } from "@workspace/api-client-react";
+import { useGlobalFilters } from "@/hooks/use-global-filters";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatsExplorer } from "@/components/stats-explorer";
+import { SortableHeader } from "@/components/sortable-header";
 import { ArrowLeft, Shield, MapPin, Users } from "lucide-react";
 
 export function TeamDetail() {
   const [, params] = useRoute("/teams/:school");
   const school = params?.school ? decodeURIComponent(params.school) : "";
+  const { season } = useGlobalFilters();
+
+  const [sort, setSort] = useState<ListPlayersSort>("snaps");
+  const [order, setOrder] = useState<ListPlayersOrder>("desc");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+
+  // Toggle direction on the active column, otherwise switch to it with a
+  // sensible default (text columns A→Z, numeric columns high→low).
+  const toggleSort = (newSort: ListPlayersSort) => {
+    if (sort === newSort) {
+      setOrder(order === "desc" ? "asc" : "desc");
+    } else {
+      setSort(newSort);
+      setOrder(newSort === "snaps" ? "desc" : "asc");
+    }
+    setPage(1);
+  };
 
   const { data: teamData, isLoading } = useGetTeam(school, {
     query: {
@@ -16,6 +44,19 @@ export function TeamDetail() {
       queryKey: getGetTeamQueryKey(school)
     }
   });
+
+  const rosterParams = { team: school, season, sort, order, page, pageSize };
+  const { data: rosterData, isLoading: rosterLoading } = useListPlayers(
+    rosterParams,
+    {
+      query: {
+        enabled: !!school,
+        queryKey: getListPlayersQueryKey(rosterParams),
+      },
+    },
+  );
+  const roster = rosterData?.players ?? [];
+  const rosterTotal = rosterData?.total ?? 0;
 
   if (isLoading) {
     return (
@@ -41,7 +82,7 @@ export function TeamDetail() {
     );
   }
 
-  const { team, roster } = teamData;
+  const { team } = teamData;
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto flex flex-col h-[calc(100vh-2rem)]">
@@ -71,7 +112,7 @@ export function TeamDetail() {
             {(team.city || team.state) && (
               <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {team.city}{team.city && team.state ? ', ' : ''}{team.state}</span>
             )}
-            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {roster.length} Players</span>
+            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {rosterTotal} Players</span>
           </div>
         </div>
       </div>
@@ -91,42 +132,85 @@ export function TeamDetail() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-muted/50 text-muted-foreground text-sm uppercase tracking-wider">
-                    <th className="p-4 font-semibold">Player</th>
-                    <th className="p-4 font-semibold">Pos</th>
-                    <th className="p-4 font-semibold text-right">Snaps</th>
+                    <SortableHeader
+                      label="Player"
+                      active={sort === "name"}
+                      order={order}
+                      onClick={() => toggleSort("name")}
+                    />
+                    <SortableHeader
+                      label="Pos"
+                      active={sort === "position"}
+                      order={order}
+                      onClick={() => toggleSort("position")}
+                    />
+                    <SortableHeader
+                      label="Snaps"
+                      align="right"
+                      active={sort === "snaps"}
+                      order={order}
+                      onClick={() => toggleSort("snaps")}
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {roster.length === 0 ? (
+                  {rosterLoading ? (
+                    Array.from({ length: 10 }).map((_, i) => (
+                      <tr key={i}>
+                        <td className="p-4"><Skeleton className="h-6 w-32" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-12" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-12 ml-auto" /></td>
+                      </tr>
+                    ))
+                  ) : roster.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="p-8 text-center text-muted-foreground">No players found for this team.</td>
                     </tr>
                   ) : (
-                    roster
-                      .slice()
-                      .sort(
-                        (a, b) =>
-                          ((b.snapsNonSt || 0) + (b.snapsSt || 0)) -
-                          ((a.snapsNonSt || 0) + (a.snapsSt || 0)),
-                      )
-                      .map((player) => (
-                        <tr key={`${player.playerId}-${player.season}`} className="hover:bg-muted/30 transition-colors group">
-                          <td className="p-4">
-                            <Link href={`/players/${player.playerId}`}>
-                              <div className="font-bold text-foreground group-hover:text-primary cursor-pointer">
-                                {player.playerName}
-                                <span className="text-xs text-muted-foreground font-normal ml-2">#{player.jersey || '-'}</span>
-                              </div>
-                            </Link>
-                          </td>
-                          <td className="p-4 text-sm font-medium">{player.position}</td>
-                          <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
-                        </tr>
-                      ))
+                    roster.map((player) => (
+                      <tr key={`${player.playerId}-${player.season}`} className="hover:bg-muted/30 transition-colors group">
+                        <td className="p-4">
+                          <Link href={`/players/${player.playerId}`}>
+                            <div className="font-bold text-foreground group-hover:text-primary cursor-pointer">
+                              {player.playerName}
+                              <span className="text-xs text-muted-foreground font-normal ml-2">#{player.jersey || '-'}</span>
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="p-4 text-sm font-medium">{player.position}</td>
+                        <td className="p-4 text-sm text-right">{((player.snapsNonSt || 0) + (player.snapsSt || 0)) || '-'}</td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
             </div>
+
+            {rosterTotal > 0 && (
+              <div className="p-4 border-t border-border flex items-center justify-between bg-card text-sm text-muted-foreground">
+                <div>
+                  Showing <span className="font-medium text-foreground">{(page - 1) * pageSize + 1}</span> to <span className="font-medium text-foreground">{Math.min(page * pageSize, rosterTotal)}</span> of <span className="font-medium text-foreground">{rosterTotal}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page * pageSize >= rosterTotal}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </TabsContent>
 

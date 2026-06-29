@@ -62,7 +62,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [war, twar, player_value, name, snaps]
+            enum: [war, twar, player_value, name, snaps, position, team]
         - name: order
           in: query
           required: false

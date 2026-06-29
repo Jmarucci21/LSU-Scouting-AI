@@ -85,6 +85,9 @@ router.get("/players", async (req, res): Promise<void> => {
 
   const where = conditions.length ? and(...conditions) : undefined;
 
+  // `snaps` sorts by the total snap count shown in the UI (non-ST + ST), not
+  // just non-ST, so the ordering matches the displayed value.
+  const totalSnaps = sql`(coalesce(${playersTable.snapsNonSt}, 0) + coalesce(${playersTable.snapsSt}, 0))`;
   const sortColumn =
     sort === "twar"
       ? playersTable.twar
@@ -92,9 +95,13 @@ router.get("/players", async (req, res): Promise<void> => {
         ? playersTable.playerValue
         : sort === "name"
           ? playersTable.playerName
-          : sort === "snaps"
-            ? playersTable.snapsNonSt
-            : playersTable.war;
+          : sort === "position"
+            ? playersTable.position
+            : sort === "team"
+              ? playersTable.team
+              : sort === "snaps"
+                ? totalSnaps
+                : playersTable.war;
   const orderExpr =
     order === "asc"
       ? sql`${sortColumn} asc nulls last`
