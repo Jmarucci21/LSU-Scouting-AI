@@ -8,6 +8,7 @@
 
 export * from './careerSeasonEntry';
 export * from './careerStatRow';
+export * from './careerStatRowAgg';
 export * from './careerStatsResponse';
 export * from './dashboardSummary';
 export * from './error';

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CareerSeasonEntry } from './careerSeasonEntry';
+import type { CareerStatRowAgg } from './careerStatRowAgg';
 
 export interface CareerStatRow {
   displayName: string;
@@ -21,6 +22,8 @@ export interface CareerStatRow {
   category?: string | null;
   /** @nullable */
   total?: number | null;
+  /** How `total` is aggregated across seasons — "sum" for counting stats, "avg" for rate/percentage/per-game stats. */
+  agg: CareerStatRowAgg;
   seasonsCount: number;
   firstSeason: number;
   lastSeason: number;

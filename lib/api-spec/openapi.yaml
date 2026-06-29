@@ -613,7 +613,7 @@ components:
         value: { type: number }
     CareerStatRow:
       type: object
-      required: [displayName, latestPlayerId, source, key, label, seasonsCount, firstSeason, lastSeason, breakdown]
+      required: [displayName, latestPlayerId, source, key, label, agg, seasonsCount, firstSeason, lastSeason, breakdown]
       properties:
         displayName: { type: string }
         latestPlayerId: { type: string }
@@ -624,6 +624,10 @@ components:
         unit: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
         total: { type: ["number", "null"] }
+        agg:
+          type: string
+          enum: [sum, avg]
+          description: How `total` is aggregated across seasons — "sum" for counting stats, "avg" for rate/percentage/per-game stats.
         seasonsCount: { type: integer }
         firstSeason: { type: integer }
         lastSeason: { type: integer }

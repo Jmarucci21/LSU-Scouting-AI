@@ -17,7 +17,20 @@ required two things that are NOT obvious from the route alone:
   useless for search; the trigram GIN is required.
 
 **Why:** without these, the route ordered by `total desc` over 8M rows ran
-1.9–17s. With them every query path is sub-50ms.
+1.9–17s. With them the common paths (default ranked view, name search) are
+sub-second. NOT every path is fast: a single LARGE source filter with no name
+search (e.g. `?source=trumedia`, ~6.68M rows) still does an exact `count(*)` =
+~19s. Filtering by name (the common case) stays fast.
+
+## ORDER BY must be `NULLS LAST` to match the indexes
+The `(total desc)` / `(source,total desc)` / `(key,total desc)` btrees are
+defined with drizzle's `.desc()`, which emits `total DESC NULLS LAST`. But
+drizzle's `desc()` helper in a query `.orderBy()` emits `total DESC` =
+**NULLS FIRST**, which does NOT match the index → planner falls back to a
+seq-scan + top-N over 8M rows (~25s on the default view). Fix: order by raw
+`sql\`<col> desc nulls last\`` so the planner rides the index via an incremental
+sort (~0.15s). This NULLS default mismatch is the single most likely cause if
+the Career view ever regresses to multi-second loads.
 
 ## Unfiltered count is an estimate, not count(*)
 An exact `count(*)` over 8M rows is a ~4.5s full scan. The table is static

@@ -178,6 +178,7 @@ export const ListCareerStatsResponse = zod.object({
   "unit": zod.string().nullish(),
   "category": zod.string().nullish(),
   "total": zod.number().nullish(),
+  "agg": zod.enum(['sum', 'avg']).describe('How `total` is aggregated across seasons — \"sum\" for counting stats, \"avg\" for rate\/percentage\/per-game stats.'),
   "seasonsCount": zod.number(),
   "firstSeason": zod.number(),
   "lastSeason": zod.number(),

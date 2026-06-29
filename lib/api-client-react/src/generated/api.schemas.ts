@@ -290,6 +290,17 @@ export interface CareerSeasonEntry {
   value: number;
 }
 
+/**
+ * How `total` is aggregated across seasons — "sum" for counting stats, "avg" for rate/percentage/per-game stats.
+ */
+export type CareerStatRowAgg = typeof CareerStatRowAgg[keyof typeof CareerStatRowAgg];
+
+
+export const CareerStatRowAgg = {
+  sum: 'sum',
+  avg: 'avg',
+} as const;
+
 export interface CareerStatRow {
   displayName: string;
   latestPlayerId: string;
@@ -304,6 +315,8 @@ export interface CareerStatRow {
   category?: string | null;
   /** @nullable */
   total?: number | null;
+  /** How `total` is aggregated across seasons — "sum" for counting stats, "avg" for rate/percentage/per-game stats. */
+  agg: CareerStatRowAgg;
   seasonsCount: number;
   firstSeason: number;
   lastSeason: number;

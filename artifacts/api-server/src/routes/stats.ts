@@ -263,8 +263,12 @@ router.get("/stats/career", async (req, res): Promise<void> => {
     .select()
     .from(playerCareerStatsTable)
     .where(where)
+    // `total DESC NULLS LAST` (not drizzle's `desc()`, which is NULLS FIRST) so
+    // the planner can ride the `(total)` / `(source,total)` / `(key,total)`
+    // btree indexes (all defined NULLS LAST) via an incremental sort instead of
+    // a full seq-scan + top-N over ~8M rows (~25s -> ~150ms).
     .orderBy(
-      desc(playerCareerStatsTable.total),
+      sql`${playerCareerStatsTable.total} desc nulls last`,
       asc(playerCareerStatsTable.displayName),
     )
     .limit(limit + 1)
@@ -310,6 +314,7 @@ router.get("/stats/career", async (req, res): Promise<void> => {
         unit: r.unit ?? null,
         category: r.category ?? null,
         total: r.total ?? null,
+        agg: r.agg === "avg" ? "avg" : "sum",
         seasonsCount: r.seasonsCount,
         firstSeason: r.firstSeason,
         lastSeason: r.lastSeason,

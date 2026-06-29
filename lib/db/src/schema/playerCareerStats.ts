@@ -40,6 +40,11 @@ export const playerCareerStatsTable = pgTable(
     category: text("category"),
     unit: text("unit"),
     total: real("total"),
+    // How `total` was aggregated across seasons: "sum" for counting stats
+    // (yards, TDs, attempts) or "avg" for rate/percentage/per-game stats
+    // (Comp%, PPG, EPA/Play) where summing across seasons is meaningless. Set
+    // by buildCareerStats; lets the UI label the value as a total vs an average.
+    agg: text("agg").notNull().default("sum"),
     seasonsCount: integer("seasons_count").notNull(),
     firstSeason: integer("first_season").notNull(),
     lastSeason: integer("last_season").notNull(),

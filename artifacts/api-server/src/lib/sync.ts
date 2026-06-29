@@ -742,7 +742,7 @@ async function ingestTelemetry(season: number): Promise<number> {
  * GROUP BY over the ~17M-row join happens once per sync rather than per request.
  * Replaces the whole table atomically. Returns the number of career lines.
  */
-async function buildCareerStats(): Promise<number> {
+export async function buildCareerStats(): Promise<number> {
   progress = { phase: "Building career totals", processed: 0, total: 0 };
   // The career name-search index is a trigram GIN (a leading-wildcard ILIKE
   // cannot use a btree); ensure the extension exists before the schema's
@@ -750,10 +750,21 @@ async function buildCareerStats(): Promise<number> {
   await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
   const total = await db.transaction(async (tx) => {
     await tx.execute(sql`TRUNCATE TABLE player_career_stats RESTART IDENTITY`);
+    // Rate/percentage/per-game stats (Comp%, PPG, EPA/Play, passer rating, ...)
+    // cannot be summed across seasons — their career value is the average of the
+    // per-season values. Counting stats (yards, TDs, attempts) are summed. The
+    // predicate keys off the TruMedia naming conventions: a "%" or "/" in the
+    // key, a "PG" suffix (per game), the Pct/Per/Rate/Rtg/Avg tokens, a "%" unit,
+    // or rate/percent/average/per wording in the label.
+    const isRate = sql`(
+      key ~ '%|/|PG$|Pct|Per|Rate|Rtg|Avg'
+      OR unit = '%'
+      OR lower(label) ~ 'percent|rate|rating|average|per game|per play| per '
+    )`;
     await tx.execute(sql`
       INSERT INTO player_career_stats (
         nname, display_name, source, key, label, category, unit,
-        total, seasons_count, first_season, last_season,
+        total, agg, seasons_count, first_season, last_season,
         latest_team, latest_player_id, breakdown
       )
       WITH per_season AS (
@@ -774,28 +785,48 @@ async function buildCareerStats(): Promise<number> {
           ON p.player_id = ps.player_id AND p.season = ps.season
         WHERE ps.value IS NOT NULL
         GROUP BY lower(btrim(p.player_name)), ps.source, ps.key, ps.season
+      ),
+      agg AS (
+        SELECT
+          nname,
+          source,
+          key,
+          (array_agg(display_name ORDER BY season DESC))[1] AS display_name,
+          (array_agg(label ORDER BY season DESC))[1] AS label,
+          (array_agg(category ORDER BY season DESC))[1] AS category,
+          (array_agg(unit ORDER BY season DESC))[1] AS unit,
+          sum(value) AS sum_value,
+          avg(value) AS avg_value,
+          count(*)::int AS seasons_count,
+          min(season) AS first_season,
+          max(season) AS last_season,
+          (array_agg(team ORDER BY season DESC))[1] AS latest_team,
+          (array_agg(player_id ORDER BY season DESC))[1] AS latest_player_id,
+          jsonb_agg(
+            jsonb_build_object('season', season, 'team', team, 'value', value)
+            ORDER BY season
+          ) AS breakdown
+        FROM per_season
+        WHERE nname <> ''
+        GROUP BY nname, source, key
       )
       SELECT
         nname,
-        (array_agg(display_name ORDER BY season DESC))[1] AS display_name,
+        display_name,
         source,
         key,
-        (array_agg(label ORDER BY season DESC))[1] AS label,
-        (array_agg(category ORDER BY season DESC))[1] AS category,
-        (array_agg(unit ORDER BY season DESC))[1] AS unit,
-        sum(value) AS total,
-        count(*)::int AS seasons_count,
-        min(season) AS first_season,
-        max(season) AS last_season,
-        (array_agg(team ORDER BY season DESC))[1] AS latest_team,
-        (array_agg(player_id ORDER BY season DESC))[1] AS latest_player_id,
-        jsonb_agg(
-          jsonb_build_object('season', season, 'team', team, 'value', value)
-          ORDER BY season
-        ) AS breakdown
-      FROM per_season
-      WHERE nname <> ''
-      GROUP BY nname, source, key
+        label,
+        category,
+        unit,
+        CASE WHEN ${isRate} THEN avg_value ELSE sum_value END AS total,
+        CASE WHEN ${isRate} THEN 'avg' ELSE 'sum' END AS agg,
+        seasons_count,
+        first_season,
+        last_season,
+        latest_team,
+        latest_player_id,
+        breakdown
+      FROM agg
     `);
 
     const [{ count }] = await tx

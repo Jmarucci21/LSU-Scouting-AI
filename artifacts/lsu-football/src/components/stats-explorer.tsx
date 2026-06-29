@@ -256,7 +256,7 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                     <th className="p-4 font-semibold">Source</th>
                     <th className="p-4 font-semibold">Stat</th>
                     <th className="p-4 font-semibold">Seasons</th>
-                    <th className="p-4 font-semibold text-right">Career Total</th>
+                    <th className="p-4 font-semibold text-right">Career</th>
                   </>
                 ) : (
                   <>
@@ -456,6 +456,14 @@ function CareerRows({
         </td>
         <td className="p-4 text-sm font-bold text-right">
           {formatNumber(row.total, row.unit)}
+          {row.agg === "avg" && (
+            <span
+              className="ml-1.5 text-xs font-normal text-muted-foreground"
+              title="Per-season average — this is a rate/percentage stat, which cannot be summed across seasons"
+            >
+              avg
+            </span>
+          )}
         </td>
       </tr>
       {isOpen && (
