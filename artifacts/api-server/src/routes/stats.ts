@@ -20,6 +20,7 @@ import {
 import {
   positionGroupMembers,
   positionGroupOptions,
+  statsbombCategoriesForPosition,
   expandConference,
   normalizeConference,
   orderConferences,
@@ -65,13 +66,13 @@ router.get("/players/:playerId/stats", async (req, res): Promise<void> => {
   // Scope to the player's latest season so the Raw Stats tabs match the
   // player header (which also resolves to the latest season row).
   const [latest] = await db
-    .select({ season: playersTable.season })
+    .select({ season: playersTable.season, position: playersTable.position })
     .from(playersTable)
     .where(eq(playersTable.playerId, params.data.playerId))
     .orderBy(desc(playersTable.season))
     .limit(1);
 
-  const rows = latest
+  const allRows = latest
     ? await db
         .select()
         .from(playerStatsTable)
@@ -87,6 +88,23 @@ router.get("/players/:playerId/stats", async (req, res): Promise<void> => {
           asc(playerStatsTable.label),
         )
     : [];
+
+  // StatsBomb tracking stats are bucketed by position-specific `category`
+  // (DL Get Off, WR Get Off, OL Pass Pro Dist, ...). Show a player only the
+  // categories relevant to their position so e.g. a safety doesn't see
+  // "DL Get Off" / "WR Get Off" cross-position noise. A null set means the
+  // position is unknown/ambiguous -> show everything. Non-StatsBomb sources are
+  // never filtered.
+  const allowedSbCategories = statsbombCategoriesForPosition(latest?.position);
+  const rows =
+    allowedSbCategories == null
+      ? allRows
+      : allRows.filter(
+          (r) =>
+            r.source !== "statsbomb" ||
+            r.category == null ||
+            allowedSbCategories.has(r.category),
+        );
 
   const bySource = new Map<
     string,

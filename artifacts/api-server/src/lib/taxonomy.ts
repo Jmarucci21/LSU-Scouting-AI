@@ -44,9 +44,82 @@ export const POSITION_GROUPS: PositionGroup[] = [
 
 const GROUP_BY_VALUE = new Map(POSITION_GROUPS.map((g) => [g.value, g]));
 
+/** Reverse lookup: raw position abbrev -> its canonical group value. */
+const GROUP_VALUE_BY_POSITION = new Map<string, string>(
+  POSITION_GROUPS.flatMap((g) => g.members.map((m) => [m, g.value] as const)),
+);
+
 /** Raw position abbrevs for a canonical group value, or null if unknown. */
 export function positionGroupMembers(value: string): string[] | null {
   return GROUP_BY_VALUE.get(value)?.members ?? null;
+}
+
+// --- StatsBomb position relevance ----------------------------------------
+
+/**
+ * StatsBomb player-tracking stats are bucketed into position-specific
+ * `category` groups (e.g. "DL Get Off", "WR Get Off", "OL Pass Pro Dist",
+ * "RB Breakaway Speed"). A player only meaningfully owns the categories for
+ * their position; the rest are cross-position noise (mostly zeros) that
+ * shouldn't show on the player's Raw Stats tab — a safety should not see
+ * "DL Get Off" or "WR Get Off".
+ *
+ * This maps each canonical position group (see POSITION_GROUPS) to the
+ * StatsBomb categories relevant to it. "Primary" is the general tracking
+ * bucket (top speed, distance, etc.) and is allowed for every position, so it
+ * is added implicitly by `statsbombCategoriesForPosition`. The "ATH" catch-all
+ * group (ATH/PR/unknown) is intentionally absent so genuinely ambiguous
+ * positions fall through to "show everything" rather than being over-filtered.
+ *
+ * This is a deliberately editable scouting judgment, not a hard rule — adjust
+ * a group's list here to change what that position sees.
+ */
+const STATSBOMB_CATEGORIES_BY_GROUP: Record<string, string[]> = {
+  // Offense
+  QB: [],
+  RB: ["RB Breakaway Speed", "RB LOS Acceleration", "Deep Route Speed"],
+  WR: ["Deep Route Speed", "WR Get Off"],
+  TE: ["Deep Route Speed", "WR Get Off"],
+  OL: ["OL Pass Pro Dist"],
+  C: ["OL Pass Pro Dist"],
+  G: ["OL Pass Pro Dist"],
+  T: ["OL Pass Pro Dist"],
+  // Defense
+  EDGE: ["DL Get Off", "Closing Speed", "ST Tackling"],
+  DT: ["DL Get Off", "ST Tackling"],
+  DL: ["DL Get Off", "ST Tackling"],
+  LB: ["Closing Speed", "DL Get Off", "ST Tackling"],
+  MLB: ["Closing Speed", "DL Get Off", "ST Tackling"],
+  OLB: ["Closing Speed", "DL Get Off", "ST Tackling"],
+  CB: ["Closing Speed", "ST Tackling"],
+  NB: ["Closing Speed", "ST Tackling"],
+  S: ["Closing Speed", "ST Tackling"],
+  DB: ["Closing Speed", "ST Tackling"],
+  // Special teams
+  K: ["FG/XP", "Kickoffs"],
+  P: ["Punting"],
+  LS: ["Long Snappers"],
+  ST: ["ST Tackling", "Kick Returns", "Punt Returns"],
+};
+
+/** "Primary" is general tracking and is relevant to every position. */
+const STATSBOMB_UNIVERSAL_CATEGORY = "Primary";
+
+/**
+ * The set of StatsBomb categories relevant to a raw `players.position`, or
+ * `null` when the position is unknown / a catch-all (ATH/PR/?) so the caller
+ * shows every category rather than hiding data. The returned set always
+ * includes the universal "Primary" category.
+ */
+export function statsbombCategoriesForPosition(
+  position: string | null | undefined,
+): Set<string> | null {
+  if (!position) return null;
+  const group = GROUP_VALUE_BY_POSITION.get(position);
+  if (!group) return null;
+  const allowed = STATSBOMB_CATEGORIES_BY_GROUP[group];
+  if (!allowed) return null;
+  return new Set([STATSBOMB_UNIVERSAL_CATEGORY, ...allowed]);
 }
 
 /** Canonical position groups exposed to clients (value + label only). */

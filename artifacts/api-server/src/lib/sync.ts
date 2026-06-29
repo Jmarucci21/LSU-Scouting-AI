@@ -728,12 +728,16 @@ async function ingestTelemetry(season: number): Promise<number> {
       WHERE season = ${season} AND player_tier IS NOT NULL
     `);
 
-    // Flattened grade components from player_grades.
+    // Flattened grade components from player_grades. PFF grade components
+    // (category 'PFF Grades') are intentionally NOT projected — the Telemetry
+    // raw-stats source carries raw value/grade metrics only, not PFF's
+    // proprietary grades (they remain in player_grades but are hidden here).
     await tx.execute(sql`
       INSERT INTO player_stats (source, player_id, season, category, key, label, value)
       SELECT 'telemetry', player_id, season, category, key, label, value
       FROM player_grades
       WHERE season = ${season} AND value IS NOT NULL
+        AND category <> 'PFF Grades'
     `);
 
     const [{ count }] = await tx
