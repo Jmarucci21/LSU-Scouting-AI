@@ -498,7 +498,17 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                           {season}
                         </span>{" "}
                         season. That player may not have played this season &mdash;
-                        try changing the Season filter on the left.
+                        try changing the Season filter on the left
+                        {careerAllowed ? (
+                          <>
+                            , or switch to the{" "}
+                            <span className="font-semibold text-foreground">
+                              Career
+                            </span>{" "}
+                            view to see every season at once
+                          </>
+                        ) : null}
+                        .
                       </>
                     ) : (
                       <>
