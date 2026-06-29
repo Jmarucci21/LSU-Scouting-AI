@@ -181,9 +181,23 @@ export function PlayersExplorer() {
                   <tr key={`${player.playerId}-${player.season}`} className="hover:bg-muted/30 transition-colors group">
                     <td className="p-4">
                       <Link href={`/players/${player.playerId}`}>
-                        <div className="font-bold text-foreground group-hover:text-primary cursor-pointer">
-                          {player.playerName}
-                          <span className="text-xs text-muted-foreground font-normal ml-2">#{player.jersey || '-'}</span>
+                        <div className="flex items-center gap-3 cursor-pointer">
+                          {player.photoUrl ? (
+                            <img
+                              src={player.photoUrl}
+                              alt=""
+                              loading="lazy"
+                              className="h-9 w-9 rounded-full object-cover bg-muted shrink-0"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
+                              {player.playerName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                            </div>
+                          )}
+                          <div className="font-bold text-foreground group-hover:text-primary">
+                            {player.playerName}
+                            <span className="text-xs text-muted-foreground font-normal ml-2">#{player.jersey || '-'}</span>
+                          </div>
                         </div>
                       </Link>
                     </td>

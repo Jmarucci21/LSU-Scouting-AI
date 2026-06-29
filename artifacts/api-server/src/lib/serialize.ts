@@ -19,5 +19,6 @@ export function mapPlayer(p: DbPlayer) {
     playerValue: p.playerValue ?? null,
     playerValuePct: p.playerValuePct ?? null,
     playerTier: p.playerTier ?? null,
+    photoUrl: p.photoUrl ?? null,
   };
 }

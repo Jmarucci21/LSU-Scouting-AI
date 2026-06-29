@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, and, eq, inArray } from "drizzle-orm";
 import {
   db,
   teamsTable,
@@ -34,6 +34,8 @@ import {
   fetchTrumediaTeamPlayers,
 } from "./sources/trumedia";
 import { pffConfigured, checkPff } from "./sources/pff";
+import { fetchEspnTeams, fetchEspnRoster, type EspnTeam } from "./sources/espn";
+import { expandConference } from "./taxonomy";
 
 let syncing = false;
 
@@ -374,6 +376,18 @@ async function performSync(
       );
     }
 
+    // Backfill ESPN player headshots league-wide (non-fatal). ESPN needs no
+    // key; matches our players by school+name and sets photo_url across seasons.
+    let espnPhotos = 0;
+    try {
+      espnPhotos = await ingestEspnPhotos(season);
+    } catch (e) {
+      logger.error(
+        { err: (e as Error).message, season },
+        "ESPN photo ingest failed (non-fatal)",
+      );
+    }
+
     // Rebuild career totals from the refreshed player_stats (non-fatal).
     try {
       await buildCareerStats();
@@ -384,7 +398,7 @@ async function performSync(
       );
     }
 
-    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${telemetrySynced} Telemetry stat lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, and ${trumediaSynced} TruMedia stat lines for ${season}`;
+    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${telemetrySynced} Telemetry stat lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, ${trumediaSynced} TruMedia stat lines, and ${espnPhotos} ESPN photos for ${season}`;
 
     await db
       .update(syncMetaTable)
@@ -1160,6 +1174,202 @@ async function performTrumediaBackfill(
           logger.error(
             { err: (err as Error).message },
             "Failed to record TruMedia backfill error",
+          ),
+        );
+    }
+  } finally {
+    syncing = false;
+    progress = { phase: "idle", processed: 0, total: 0 };
+  }
+}
+
+// --- ESPN headshots ingest -----------------------------------------------
+
+/**
+ * Backfill ESPN player headshots league-wide. ESPN's public college-football
+ * API needs no key: enumerate teams, fetch each team's roster, and match its
+ * players to ours by normalized school + name (ESPN team `location` is the clean
+ * school; fall back to longest-prefix on the display name). A matched player's
+ * id is stable across seasons, so photo_url is set on ALL of that player's rows.
+ * Resilient: a failed roster fetch skips that team. Returns players matched.
+ * Optional team/conference scope narrows the DB player set; ESPN teams that
+ * resolve to an out-of-scope school are then skipped automatically.
+ */
+async function ingestEspnPhotos(
+  season: number,
+  scope?: { team?: string; conference?: string },
+): Promise<number> {
+  progress = { phase: "ESPN photos: fetching teams", processed: 0, total: 0 };
+  const espnTeams = await fetchEspnTeams();
+  if (espnTeams.length === 0) return 0;
+
+  const conds = [eq(playersTable.season, season)];
+  if (scope?.team) conds.push(eq(playersTable.team, scope.team));
+  if (scope?.conference) {
+    const raws = expandConference(scope.conference);
+    if (raws.length) conds.push(inArray(playersTable.conference, raws));
+  }
+  const dbPlayers = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(and(...conds));
+
+  const schoolsLower = [
+    ...new Set(dbPlayers.map((p) => p.team).filter((t): t is string => !!t)),
+  ].map((s) => ({ raw: s, lower: s.toLowerCase() }));
+  const bySchool = new Map<string, Map<string, string>>();
+  for (const p of dbPlayers) {
+    if (!p.team) continue;
+    let m = bySchool.get(p.team);
+    if (!m) {
+      m = new Map();
+      bySchool.set(p.team, m);
+    }
+    m.set(normName(p.playerName), p.playerId);
+  }
+
+  // ESPN `location` is the clean school ("LSU"); match normalized-equality
+  // first, then longest-prefix on the display name ("LSU Tigers").
+  function resolveSchool(t: EspnTeam): string | null {
+    const loc = t.location.toLowerCase();
+    for (const s of schoolsLower) if (s.lower === loc) return s.raw;
+    const dn = t.displayName.toLowerCase();
+    let best: string | null = null;
+    let bestLen = 0;
+    for (const s of schoolsLower) {
+      if (
+        (dn.startsWith(s.lower) || loc.startsWith(s.lower)) &&
+        s.lower.length > bestLen
+      ) {
+        best = s.raw;
+        bestLen = s.lower.length;
+      }
+    }
+    return best;
+  }
+
+  const photoById = new Map<string, string>();
+  let processed = 0;
+  const total = espnTeams.length;
+  progress = { phase: "ESPN photos: matching rosters", processed, total };
+  await mapPool(espnTeams, 8, async (t) => {
+    try {
+      const school = resolveSchool(t);
+      const m = school ? bySchool.get(school) : undefined;
+      if (m) {
+        const roster = await fetchEspnRoster(t.id);
+        for (const rp of roster) {
+          const pid = m.get(normName(rp.name));
+          if (pid && !photoById.has(pid)) photoById.set(pid, rp.photoUrl);
+        }
+      }
+    } catch (e) {
+      logger.warn(
+        { team: t.displayName, err: (e as Error).message },
+        "ESPN roster fetch failed (skipped)",
+      );
+    } finally {
+      processed += 1;
+      progress = { phase: "ESPN photos: matching rosters", processed, total };
+    }
+  });
+
+  if (photoById.size === 0) return 0;
+
+  const entries = [...photoById.entries()];
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < entries.length; i += 500) {
+      const rows = entries.slice(i, i + 500);
+      const values = sql.join(
+        rows.map(([pid, url]) => sql`(${pid}, ${url})`),
+        sql`, `,
+      );
+      await tx.execute(sql`
+        UPDATE ${playersTable} AS p
+        SET photo_url = v.url
+        FROM (VALUES ${values}) AS v(pid, url)
+        WHERE p.player_id = v.pid::text
+      `);
+    }
+  });
+
+  logger.info(
+    { season, espnTeams: espnTeams.length, matchedPlayers: photoById.size },
+    "ESPN photos ingest complete",
+  );
+  return photoById.size;
+}
+
+export function startEspnPhotos(
+  opts: SyncOptions,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
+  const season = opts.season ?? defaultSeason();
+  if (syncing) {
+    return {
+      status: "running",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season,
+      message: "A sync is already running",
+    };
+  }
+  syncing = true;
+  progress = { phase: "Starting ESPN photo sync", processed: 0, total: 0 };
+  void performEspnPhotos(opts, season, trigger).catch((e) => {
+    logger.error({ err: (e as Error).message }, "ESPN photo sync crashed");
+  });
+  return {
+    status: "running",
+    playersSynced: 0,
+    teamsSynced: 0,
+    season,
+    message: `ESPN photo sync started for ${season}. This runs in the background.`,
+  };
+}
+
+async function performEspnPhotos(
+  opts: SyncOptions,
+  season: number,
+  trigger: SyncTrigger,
+): Promise<void> {
+  let meta: { id: number } | undefined;
+  try {
+    [meta] = await db
+      .insert(syncMetaTable)
+      .values({ status: "running", season, trigger })
+      .returning();
+    const matched = await ingestEspnPhotos(season, {
+      team: opts.team,
+      conference: opts.conference,
+    });
+    const message = `ESPN photos: matched ${matched} players for ${season}`;
+    await db
+      .update(syncMetaTable)
+      .set({
+        status: "success",
+        playersSynced: matched,
+        message,
+        finishedAt: new Date(),
+      })
+      .where(sql`${syncMetaTable.id} = ${meta.id}`);
+    logger.info({ season, matched }, "ESPN photo sync complete");
+  } catch (e) {
+    const message = (e as Error).message;
+    logger.error({ err: message }, "ESPN photo sync failed");
+    if (meta) {
+      await db
+        .update(syncMetaTable)
+        .set({ status: "error", message, finishedAt: new Date() })
+        .where(sql`${syncMetaTable.id} = ${meta.id}`)
+        .catch((err) =>
+          logger.error(
+            { err: (err as Error).message },
+            "Failed to record ESPN photo sync error",
           ),
         );
     }

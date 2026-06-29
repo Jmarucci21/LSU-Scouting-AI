@@ -1353,3 +1353,73 @@ export const useRunTrumediaBackfill = <TError = ErrorType<Error>,
       return useMutation(getRunTrumediaBackfillMutationOptions(options));
     }
 
+export const getRunEspnPhotosUrl = () => {
+
+
+
+
+  return `/api/sync/espn`
+}
+
+/**
+ * @summary Backfill ESPN player headshots league-wide
+ */
+export const runEspnPhotos = async (syncInput?: SyncInput, options?: RequestInit): Promise<SyncStatus> => {
+
+  return customFetch<SyncStatus>(getRunEspnPhotosUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(syncInput)
+  }
+);}
+
+
+
+
+export const getRunEspnPhotosMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runEspnPhotos>>, TError,{data?: BodyType<SyncInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runEspnPhotos>>, TError,{data?: BodyType<SyncInput>}, TContext> => {
+
+const mutationKey = ['runEspnPhotos'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runEspnPhotos>>, {data?: BodyType<SyncInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runEspnPhotos(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunEspnPhotosMutationResult = NonNullable<Awaited<ReturnType<typeof runEspnPhotos>>>
+    export type RunEspnPhotosMutationBody = BodyType<SyncInput> | undefined
+    export type RunEspnPhotosMutationError = ErrorType<Error>
+
+    /**
+ * @summary Backfill ESPN player headshots league-wide
+ */
+export const useRunEspnPhotos = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runEspnPhotos>>, TError,{data?: BodyType<SyncInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runEspnPhotos>>,
+        TError,
+        {data?: BodyType<SyncInput>},
+        TContext
+      > => {
+      return useMutation(getRunEspnPhotosMutationOptions(options));
+    }
+

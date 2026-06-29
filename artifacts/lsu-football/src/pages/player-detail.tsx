@@ -56,9 +56,18 @@ export function PlayerDetail() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-card border border-border p-6 rounded-xl shadow-sm">
         <div className="flex items-center gap-6">
-          <div className="w-24 h-24 bg-primary/10 text-primary rounded-full flex items-center justify-center font-black text-4xl border-4 border-card shadow-sm">
-            {player.jersey ? `#${player.jersey}` : <User className="w-10 h-10" />}
-          </div>
+          {player.photoUrl ? (
+            <img
+              src={player.photoUrl}
+              alt={player.playerName}
+              loading="lazy"
+              className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-sm bg-muted"
+            />
+          ) : (
+            <div className="w-24 h-24 bg-primary/10 text-primary rounded-full flex items-center justify-center font-black text-4xl border-4 border-card shadow-sm">
+              {player.jersey ? `#${player.jersey}` : <User className="w-10 h-10" />}
+            </div>
+          )}
           <div>
             <h1 className="text-4xl font-black tracking-tight">
               {player.playerName}

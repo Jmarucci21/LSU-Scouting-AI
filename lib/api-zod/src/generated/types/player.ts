@@ -38,4 +38,6 @@ export interface Player {
   playerValuePct?: number | null;
   /** @nullable */
   playerTier?: string | null;
+  /** @nullable */
+  photoUrl?: string | null;
 }

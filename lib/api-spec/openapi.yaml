@@ -345,6 +345,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/espn:
+    post:
+      operationId: runEspnPhotos
+      tags: [sync]
+      summary: Backfill ESPN player headshots league-wide
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncInput"
+      responses:
+        "200":
+          description: ESPN photo sync started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "503":
+          description: External source unavailable or not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -380,6 +404,7 @@ components:
         playerValue: { type: ["number", "null"] }
         playerValuePct: { type: ["number", "null"] }
         playerTier: { type: ["string", "null"] }
+        photoUrl: { type: ["string", "null"] }
     PlayerDetail:
       type: object
       required: [playerId, playerName, season]
@@ -401,6 +426,7 @@ components:
         playerValue: { type: ["number", "null"] }
         playerValuePct: { type: ["number", "null"] }
         playerTier: { type: ["string", "null"] }
+        photoUrl: { type: ["string", "null"] }
         grades:
           type: array
           items:

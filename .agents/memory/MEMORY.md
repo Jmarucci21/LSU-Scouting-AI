@@ -8,3 +8,4 @@
 - [Career stats view perf](career-stats-perf.md) — 8M-row player_career_stats needs total/source/key btrees + pg_trgm GIN on nname; ORDER BY must be `nulls last` to match indexes (drizzle query desc()=NULLS FIRST mismatches); unfiltered total uses reltuples estimate + limit+1 paging; large-source count still ~19s.
 - [stats/meta perf + TruMedia curation](player-stats-meta-and-curation.md) — ANALYZE player_stats after bulk ingest or /stats/meta seq-scans + times out; fantasy exclusion must cover RecFP*/ADP*, not just ^Fant.
 - [Team logos](team-logos.md) — logos already in teams.logo (Telemetry csv_team_logo); render via client-side useListTeams map (TeamBadge/useTeamLogos), don't add logo to /players or /stats list APIs.
+- [Drizzle bulk update with JS arrays](drizzle-bulk-update.md) — drizzle expands an interpolated JS array into `$1,$2,...` (not a pg array), so `unnest(${arr}::text[])` fails at runtime; use a VALUES list via sql.join for bulk UPDATE…FROM.

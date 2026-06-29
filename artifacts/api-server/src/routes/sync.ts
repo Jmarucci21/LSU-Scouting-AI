@@ -7,10 +7,13 @@ import {
   RunSyncBody,
   RunTrumediaBackfillResponse,
   RunTrumediaBackfillBody,
+  RunEspnPhotosResponse,
+  RunEspnPhotosBody,
 } from "@workspace/api-zod";
 import {
   startSync,
   startTrumediaBackfill,
+  startEspnPhotos,
   getSourceStatuses,
   isSyncing,
   getProgress,
@@ -98,6 +101,25 @@ router.post("/sync/trumedia", async (req, res): Promise<void> => {
   const result = startTrumediaBackfill(fromSeason, toSeason);
   res.json(
     RunTrumediaBackfillResponse.parse({
+      status: result.status,
+      playersSynced: result.playersSynced,
+      teamsSynced: result.teamsSynced,
+      season: result.season,
+      message: result.message,
+    }),
+  );
+});
+
+router.post("/sync/espn", async (req, res): Promise<void> => {
+  const parsed = RunEspnPhotosBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const result = startEspnPhotos(parsed.data);
+  res.json(
+    RunEspnPhotosResponse.parse({
       status: result.status,
       playersSynced: result.playersSynced,
       teamsSynced: result.teamsSynced,

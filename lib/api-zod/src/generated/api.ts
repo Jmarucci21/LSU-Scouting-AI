@@ -54,7 +54,8 @@ export const ListPlayersResponse = zod.object({
   "par": zod.number().nullish(),
   "playerValue": zod.number().nullish(),
   "playerValuePct": zod.number().nullish(),
-  "playerTier": zod.string().nullish()
+  "playerTier": zod.string().nullish(),
+  "photoUrl": zod.string().nullish()
 })),
   "total": zod.number(),
   "page": zod.number(),
@@ -87,6 +88,7 @@ export const GetPlayerResponse = zod.object({
   "playerValue": zod.number().nullish(),
   "playerValuePct": zod.number().nullish(),
   "playerTier": zod.string().nullish(),
+  "photoUrl": zod.string().nullish(),
   "grades": zod.array(zod.object({
   "key": zod.string(),
   "label": zod.string(),
@@ -290,7 +292,8 @@ export const GetTeamResponse = zod.object({
   "par": zod.number().nullish(),
   "playerValue": zod.number().nullish(),
   "playerValuePct": zod.number().nullish(),
-  "playerTier": zod.string().nullish()
+  "playerTier": zod.string().nullish(),
+  "photoUrl": zod.string().nullish()
 }))
 })
 
@@ -324,7 +327,8 @@ export const GetDashboardSummaryResponse = zod.object({
   "par": zod.number().nullish(),
   "playerValue": zod.number().nullish(),
   "playerValuePct": zod.number().nullish(),
-  "playerTier": zod.string().nullish()
+  "playerTier": zod.string().nullish(),
+  "photoUrl": zod.string().nullish()
 }).optional(),
   "seasons": zod.array(zod.number()),
   "positionGroups": zod.array(zod.object({
@@ -352,7 +356,8 @@ export const GetDashboardSummaryResponse = zod.object({
   "par": zod.number().nullish(),
   "playerValue": zod.number().nullish(),
   "playerValuePct": zod.number().nullish(),
-  "playerTier": zod.string().nullish()
+  "playerTier": zod.string().nullish(),
+  "photoUrl": zod.string().nullish()
 })).optional()
 })
 
@@ -385,7 +390,8 @@ export const GetTopPlayersResponseItem = zod.object({
   "par": zod.number().nullish(),
   "playerValue": zod.number().nullish(),
   "playerValuePct": zod.number().nullish(),
-  "playerTier": zod.string().nullish()
+  "playerTier": zod.string().nullish(),
+  "photoUrl": zod.string().nullish()
 })
 export const GetTopPlayersResponse = zod.array(GetTopPlayersResponseItem)
 
@@ -522,6 +528,53 @@ export const RunTrumediaBackfillBody = zod.object({
 })
 
 export const RunTrumediaBackfillResponse = zod.object({
+  "status": zod.string(),
+  "running": zod.boolean().optional(),
+  "progress": zod.union([zod.object({
+  "phase": zod.string(),
+  "processed": zod.number(),
+  "total": zod.number()
+}),zod.null()]).optional(),
+  "lastSyncAt": zod.string().nullish(),
+  "playersSynced": zod.number().nullish(),
+  "teamsSynced": zod.number().nullish(),
+  "season": zod.number().nullish(),
+  "message": zod.string().nullish(),
+  "sources": zod.array(zod.object({
+  "name": zod.string(),
+  "configured": zod.boolean(),
+  "ok": zod.boolean().nullish(),
+  "detail": zod.string().nullish()
+})).optional(),
+  "scheduler": zod.object({
+  "enabled": zod.boolean(),
+  "intervalHours": zod.number(),
+  "nextRunAt": zod.string().nullish()
+}).optional(),
+  "history": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "trigger": zod.string(),
+  "season": zod.number().nullish(),
+  "playersSynced": zod.number().nullish(),
+  "teamsSynced": zod.number().nullish(),
+  "message": zod.string().nullish(),
+  "startedAt": zod.string().nullish(),
+  "finishedAt": zod.string().nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Backfill ESPN player headshots league-wide
+ */
+export const RunEspnPhotosBody = zod.object({
+  "season": zod.number().optional(),
+  "team": zod.string().optional(),
+  "conference": zod.string().optional()
+})
+
+export const RunEspnPhotosResponse = zod.object({
   "status": zod.string(),
   "running": zod.boolean().optional(),
   "progress": zod.union([zod.object({

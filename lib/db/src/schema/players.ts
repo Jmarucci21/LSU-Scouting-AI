@@ -30,6 +30,7 @@ export const playersTable = pgTable(
     playerValue: real("player_value"),
     playerValuePct: real("player_value_pct"),
     playerTier: text("player_tier"),
+    photoUrl: text("photo_url"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
