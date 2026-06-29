@@ -4,6 +4,7 @@ import {
   useGetFilters,
   useGetTeam,
   useListPlayers,
+  type ListPlayersSort,
 } from "@workspace/api-client-react";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +24,14 @@ import {
 import { useColors } from "@/hooks/useColors";
 
 const PAGE_SIZE = 200;
+
+const SORTS: { key: ListPlayersSort; label: string }[] = [
+  { key: "war", label: "WAR" },
+  { key: "twar", label: "TWAR" },
+  { key: "snaps", label: "Snaps" },
+  { key: "name", label: "Name" },
+  { key: "position", label: "Position" },
+];
 
 export default function TeamDetailScreen() {
   const colors = useColors();
@@ -47,11 +56,14 @@ export default function TeamDetailScreen() {
     }
   }, [season, seasons]);
 
+  const [sort, setSort] = useState<ListPlayersSort>("war");
+  const order = sort === "name" || sort === "position" ? "asc" : "desc";
+
   const rosterParams = {
     team: school ?? "",
     season,
-    sort: "war" as const,
-    order: "desc" as const,
+    sort,
+    order: order as "asc" | "desc",
     page: 1,
     pageSize: PAGE_SIZE,
   };
@@ -178,6 +190,42 @@ export default function TeamDetailScreen() {
         </View>
       ) : null}
 
+      <View style={{ paddingTop: 16, gap: 8 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingHorizontal: 16,
+          }}
+        >
+          <Feather name="sliders" size={14} color={colors.mutedForeground} />
+          <Text
+            style={{
+              color: colors.mutedForeground,
+              fontSize: 12,
+              fontFamily: "Inter_500Medium",
+            }}
+          >
+            Sort
+          </Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
+        >
+          {SORTS.map((s) => (
+            <Chip
+              key={s.key}
+              label={s.label}
+              active={s.key === sort}
+              onPress={() => setSort(s.key)}
+            />
+          ))}
+        </ScrollView>
+      </View>
+
       <View
         style={{
           paddingHorizontal: 16,
@@ -196,7 +244,7 @@ export default function TeamDetailScreen() {
             fontFamily: "Inter_700Bold",
           }}
         >
-          Roster by WAR
+          {`Roster by ${SORTS.find((s) => s.key === sort)?.label ?? "WAR"}`}
         </Text>
         {rosterSeason != null ? (
           <Badge label={`${rosterSeason} Roster`} tone="gold" />
