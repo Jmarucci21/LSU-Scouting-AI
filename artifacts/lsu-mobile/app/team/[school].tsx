@@ -121,8 +121,20 @@ export default function TeamDetailScreen() {
     }
   }, [season, seasons]);
 
+  const defaultOrder = (key: ListPlayersSort): "asc" | "desc" =>
+    key === "name" || key === "position" ? "asc" : "desc";
+
   const [sort, setSort] = useState<ListPlayersSort>("war");
-  const order = sort === "name" || sort === "position" ? "asc" : "desc";
+  const [order, setOrder] = useState<"asc" | "desc">(defaultOrder("war"));
+
+  const handleSort = (key: ListPlayersSort) => {
+    if (key === sort) {
+      setOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSort(key);
+      setOrder(defaultOrder(key));
+    }
+  };
 
   const [tab, setTab] = useState<Tab>("roster");
 
@@ -131,7 +143,7 @@ export default function TeamDetailScreen() {
     team: school ?? "",
     season,
     sort,
-    order: order as "asc" | "desc",
+    order,
     page: 1,
     pageSize: PAGE_SIZE,
   };
@@ -529,7 +541,14 @@ export default function TeamDetailScreen() {
                     key={s.key}
                     label={s.label}
                     active={s.key === sort}
-                    onPress={() => setSort(s.key)}
+                    icon={
+                      s.key === sort
+                        ? order === "asc"
+                          ? "arrow-up"
+                          : "arrow-down"
+                        : undefined
+                    }
+                    onPress={() => handleSort(s.key)}
                   />
                 ))}
               </ScrollView>
@@ -569,6 +588,7 @@ export default function TeamDetailScreen() {
       seasons,
       season,
       sort,
+      order,
       rosterTotal,
       rosterSeason,
       tab,

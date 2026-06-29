@@ -58,12 +58,24 @@ export default function PlayersScreen() {
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounced(searchInput);
   const [posGroup, setPosGroup] = useState<string | undefined>(undefined);
+  const defaultOrder = (key: ListPlayersSort): "asc" | "desc" =>
+    key === "name" ? "asc" : "desc";
+
   const [sort, setSort] = useState<ListPlayersSort>("war");
+  const [order, setOrder] = useState<"asc" | "desc">(defaultOrder("war"));
   const [page, setPage] = useState(1);
   const [accumulated, setAccumulated] = useState<Player[]>([]);
 
+  const handleSort = (key: ListPlayersSort) => {
+    if (key === sort) {
+      setOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSort(key);
+      setOrder(defaultOrder(key));
+    }
+  };
+
   const filters = useGetFilters();
-  const order = sort === "name" ? "asc" : "desc";
 
   const query = useListPlayers({
     search: search || undefined,
@@ -77,7 +89,7 @@ export default function PlayersScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, posGroup, sort, season]);
+  }, [search, posGroup, sort, order, season]);
 
   useEffect(() => {
     if (!query.data) return;
@@ -144,7 +156,14 @@ export default function PlayersScreen() {
                 key={s.key}
                 label={s.label}
                 active={sort === s.key}
-                onPress={() => setSort(s.key)}
+                icon={
+                  sort === s.key
+                    ? order === "asc"
+                      ? "arrow-up"
+                      : "arrow-down"
+                    : undefined
+                }
+                onPress={() => handleSort(s.key)}
               />
             ))}
           </ScrollView>
@@ -160,7 +179,7 @@ export default function PlayersScreen() {
         </Text>
       </View>
     ),
-    [searchInput, posGroups, posGroup, sort, total, colors.mutedForeground],
+    [searchInput, posGroups, posGroup, sort, order, total, colors.mutedForeground],
   );
 
   const showInitialLoading = query.isLoading && accumulated.length === 0;

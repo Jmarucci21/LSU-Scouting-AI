@@ -98,16 +98,21 @@ export function Chip({
   label,
   active,
   onPress,
+  icon,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
+  icon?: keyof typeof Feather.glyphMap;
 }) {
   const colors = useColors();
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
         backgroundColor: active ? colors.brandPurple : colors.muted,
         borderColor: active ? colors.brandPurple : colors.border,
         borderWidth: 1,
@@ -126,6 +131,13 @@ export function Chip({
       >
         {label}
       </Text>
+      {icon ? (
+        <Feather
+          name={icon}
+          size={14}
+          color={active ? "#ffffff" : colors.foreground}
+        />
+      ) : null}
     </Pressable>
   );
 }
