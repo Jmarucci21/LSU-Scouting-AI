@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ListStatsDivision } from './listStatsDivision';
+import type { ListStatsOrder } from './listStatsOrder';
+import type { ListStatsSort } from './listStatsSort';
 
 export type ListStatsParams = {
 /**
@@ -31,6 +33,14 @@ search?: string;
  * Single stat key or comma-separated list of stat keys.
  */
 key?: string;
+/**
+ * Column to sort by. Defaults to name.
+ */
+sort?: ListStatsSort;
+/**
+ * Sort direction. Defaults to asc.
+ */
+order?: ListStatsOrder;
 page?: number;
 pageSize?: number;
 };

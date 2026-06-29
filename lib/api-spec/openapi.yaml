@@ -134,6 +134,8 @@ paths:
             enum: [fbs, fcs, power4]
         - { name: search, in: query, required: false, schema: { type: string } }
         - { name: key, in: query, required: false, description: "Single stat key or comma-separated list of stat keys.", schema: { type: string } }
+        - { name: sort, in: query, required: false, description: "Column to sort by. Defaults to name.", schema: { type: string, enum: [value, name, team] } }
+        - { name: order, in: query, required: false, description: "Sort direction. Defaults to asc.", schema: { type: string, enum: [asc, desc] } }
         - { name: page, in: query, required: false, schema: { type: integer } }
         - { name: pageSize, in: query, required: false, schema: { type: integer } }
       responses:

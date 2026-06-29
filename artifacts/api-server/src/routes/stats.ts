@@ -145,6 +145,8 @@ router.get("/stats", async (req, res): Promise<void> => {
     division,
     search,
     key,
+    sort,
+    order,
     page,
     pageSize,
   } = parsed.data;
@@ -239,12 +241,46 @@ router.get("/stats", async (req, res): Promise<void> => {
     )
     .where(where);
 
+  // Resolve the sort column + direction (default: name asc, the classic roster
+  // ordering). A stable tie-breaker (name, then category/label) keeps pagination
+  // deterministic. `value` uses raw SQL `nulls last` (str-only rows have a null
+  // numeric value and belong at the bottom) so the planner can ride the
+  // `(season,source,key,value desc nulls last)` index when source+key are
+  // filtered, instead of a top-N sort over the matched set.
+  const dir = order === "asc" ? asc : desc;
+  const sortCol = sort ?? "name";
+  let orderBy: SQL[];
+  switch (sortCol) {
+    case "value":
+      orderBy = [
+        order === "asc"
+          ? sql`${playerStatsTable.value} asc nulls last`
+          : sql`${playerStatsTable.value} desc nulls last`,
+        asc(playersTable.playerName),
+        asc(playerStatsTable.category),
+        asc(playerStatsTable.label),
+      ];
+      break;
+    case "team":
+      orderBy = [
+        dir(playersTable.team),
+        asc(playersTable.playerName),
+        asc(playerStatsTable.category),
+        asc(playerStatsTable.label),
+      ];
+      break;
+    case "name":
+    default:
+      orderBy = [
+        dir(playersTable.playerName),
+        asc(playerStatsTable.category),
+        asc(playerStatsTable.label),
+      ];
+      break;
+  }
+
   const rows = await joined
-    .orderBy(
-      asc(playersTable.playerName),
-      asc(playerStatsTable.category),
-      asc(playerStatsTable.label),
-    )
+    .orderBy(...orderBy)
     .limit(limit)
     .offset(offset);
 

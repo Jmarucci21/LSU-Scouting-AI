@@ -49,6 +49,18 @@ export const playerStatsTable = pgTable(
       t.key,
       t.label,
     ),
+    // Supports the stats explorer's "By Season" value sort: after equality on
+    // (season, source, key) the planner can ride this index for ORDER BY value
+    // (the common "pick a source+stat+season, rank by value" path) instead of a
+    // top-N sort over the filtered set. NULLS LAST matches the `value desc/asc
+    // nulls last` ordering used in the /stats handler (str-only rows have a null
+    // value and sort to the bottom).
+    index("player_stats_season_source_key_value_idx").on(
+      t.season,
+      t.source,
+      t.key,
+      t.value.desc().nullsLast(),
+    ),
   ],
 );
 

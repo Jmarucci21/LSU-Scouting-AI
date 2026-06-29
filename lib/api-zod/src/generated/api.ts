@@ -134,6 +134,8 @@ export const ListStatsQueryParams = zod.object({
   "division": zod.enum(['fbs', 'fcs', 'power4']).optional().describe('Team scope derived from conference: fbs, fcs, or power4.'),
   "search": zod.coerce.string().optional(),
   "key": zod.coerce.string().optional().describe('Single stat key or comma-separated list of stat keys.'),
+  "sort": zod.enum(['value', 'name', 'team']).optional().describe('Column to sort by. Defaults to name.'),
+  "order": zod.enum(['asc', 'desc']).optional().describe('Sort direction. Defaults to asc.'),
   "page": zod.coerce.number().optional(),
   "pageSize": zod.coerce.number().optional()
 })

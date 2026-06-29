@@ -36,6 +36,7 @@ import {
 import { Link } from "wouter";
 
 type CareerSortKey = "total" | "seasonsCount" | "name";
+type SeasonSortKey = "value" | "name" | "team";
 
 const SOURCE_LABELS: Record<string, string> = {
   statsbomb: "Hudl StatsBomb",
@@ -117,6 +118,8 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [careerSort, setCareerSort] = useState<CareerSortKey>("total");
   const [careerOrder, setCareerOrder] = useState<"asc" | "desc">("desc");
+  const [seasonSort, setSeasonSort] = useState<SeasonSortKey>("name");
+  const [seasonOrder, setSeasonOrder] = useState<"asc" | "desc">("asc");
   const pageSize = 50;
 
   const { data: meta } = useGetStatsMeta({ season });
@@ -132,6 +135,8 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
     positionGroup,
     search: debouncedSearch || undefined,
     key: statKeys.length ? statKeys.join(",") : undefined,
+    sort: seasonSort,
+    order: seasonOrder,
     page,
     pageSize,
   };
@@ -195,6 +200,18 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
     } else {
       setCareerSort(col);
       setCareerOrder(col === "name" ? "asc" : "desc");
+    }
+    resetPaging();
+  };
+
+  // Same interaction for the By Season table: toggle direction on the active
+  // column, otherwise switch with a sensible default (value high→low, text A→Z).
+  const handleSeasonSort = (col: SeasonSortKey) => {
+    if (seasonSort === col) {
+      setSeasonOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setSeasonSort(col);
+      setSeasonOrder(col === "value" ? "desc" : "asc");
     }
     resetPaging();
   };
@@ -403,12 +420,30 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
                   </>
                 ) : (
                   <>
-                    <th className="p-4 font-semibold">Player</th>
+                    <SortableHeader
+                      label="Player"
+                      active={seasonSort === "name"}
+                      order={seasonOrder}
+                      onClick={() => handleSeasonSort("name")}
+                    />
                     <th className="p-4 font-semibold">Pos</th>
-                    {!fixedTeam && <th className="p-4 font-semibold">Team</th>}
+                    {!fixedTeam && (
+                      <SortableHeader
+                        label="Team"
+                        active={seasonSort === "team"}
+                        order={seasonOrder}
+                        onClick={() => handleSeasonSort("team")}
+                      />
+                    )}
                     <th className="p-4 font-semibold">Source</th>
                     <th className="p-4 font-semibold">Stat</th>
-                    <th className="p-4 font-semibold text-right">Value</th>
+                    <SortableHeader
+                      label="Value"
+                      align="right"
+                      active={seasonSort === "value"}
+                      order={seasonOrder}
+                      onClick={() => handleSeasonSort("value")}
+                    />
                   </>
                 )}
               </tr>

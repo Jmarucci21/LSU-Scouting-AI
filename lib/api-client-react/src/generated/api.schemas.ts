@@ -431,6 +431,14 @@ search?: string;
  * Single stat key or comma-separated list of stat keys.
  */
 key?: string;
+/**
+ * Column to sort by. Defaults to name.
+ */
+sort?: ListStatsSort;
+/**
+ * Sort direction. Defaults to asc.
+ */
+order?: ListStatsOrder;
 page?: number;
 pageSize?: number;
 };
@@ -442,6 +450,23 @@ export const ListStatsDivision = {
   fbs: 'fbs',
   fcs: 'fcs',
   power4: 'power4',
+} as const;
+
+export type ListStatsSort = typeof ListStatsSort[keyof typeof ListStatsSort];
+
+
+export const ListStatsSort = {
+  value: 'value',
+  name: 'name',
+  team: 'team',
+} as const;
+
+export type ListStatsOrder = typeof ListStatsOrder[keyof typeof ListStatsOrder];
+
+
+export const ListStatsOrder = {
+  asc: 'asc',
+  desc: 'desc',
 } as const;
 
 export type ListCareerStatsParams = {
