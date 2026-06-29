@@ -74,10 +74,30 @@ router.get("/teams/:school", async (req, res): Promise<void> => {
     return;
   }
 
+  // Scope the bundled roster to the team's latest synced season so it returns
+  // one row per player. Without this, teams with multiple loaded seasons (e.g.
+  // 2024 + 2025) return duplicate rows for any player who appears in more than
+  // one season. (`/teams/{school}` is path-param-only — query params would
+  // trigger an Orval codegen collision — so the season can't be a client param;
+  // consumers that need an arbitrary season use the season-scoped `/players`.)
+  const [latest] = await db
+    .select({ season: sql<number | null>`max(${playersTable.season})::int` })
+    .from(playersTable)
+    .where(eq(playersTable.team, team.school));
+  const latestSeason = latest?.season ?? null;
+
+  const rosterWhere =
+    latestSeason == null
+      ? eq(playersTable.team, team.school)
+      : and(
+          eq(playersTable.team, team.school),
+          eq(playersTable.season, latestSeason),
+        );
+
   const roster = await db
     .select()
     .from(playersTable)
-    .where(eq(playersTable.team, team.school))
+    .where(rosterWhere)
     .orderBy(sql`${playersTable.war} desc nulls last`, asc(playersTable.playerName));
 
   res.json(
