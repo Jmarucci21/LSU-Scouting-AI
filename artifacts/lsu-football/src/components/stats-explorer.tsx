@@ -26,8 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, ChevronRight, ChevronDown } from "lucide-react";
+import {
+  Search,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+} from "lucide-react";
 import { Link } from "wouter";
+
+type CareerSortKey = "total" | "seasonsCount" | "name";
 
 const SOURCE_LABELS: Record<string, string> = {
   statsbomb: "Hudl StatsBomb",
@@ -107,6 +115,8 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [careerSort, setCareerSort] = useState<CareerSortKey>("total");
+  const [careerOrder, setCareerOrder] = useState<"asc" | "desc">("desc");
   const pageSize = 50;
 
   const { data: meta } = useGetStatsMeta({ season });
@@ -129,6 +139,8 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
     source: sources.length ? sources.join(",") : undefined,
     search: debouncedSearch || undefined,
     key: statKeys.length ? statKeys.join(",") : undefined,
+    sort: careerSort,
+    order: careerOrder,
     page,
     pageSize,
   };
@@ -172,6 +184,19 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
   const resetPaging = () => {
     setPage(1);
     setExpanded(new Set());
+  };
+
+  // Click a Career column header: toggle direction if it's already the active
+  // sort, otherwise switch to it with a sensible default (numbers high→low,
+  // names A→Z). Resets paging so the new ordering starts at page 1.
+  const handleCareerSort = (col: CareerSortKey) => {
+    if (careerSort === col) {
+      setCareerOrder((o) => (o === "asc" ? "desc" : "asc"));
+    } else {
+      setCareerSort(col);
+      setCareerOrder(col === "name" ? "asc" : "desc");
+    }
+    resetPaging();
   };
 
   const toggleRow = (id: string) => {
@@ -353,12 +378,28 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
               <tr className="border-b border-border bg-muted/50 text-muted-foreground text-sm uppercase tracking-wider">
                 {isCareer ? (
                   <>
-                    <th className="p-4 font-semibold">Player</th>
+                    <SortableHeader
+                      label="Player"
+                      active={careerSort === "name"}
+                      order={careerOrder}
+                      onClick={() => handleCareerSort("name")}
+                    />
                     <th className="p-4 font-semibold">Team</th>
                     <th className="p-4 font-semibold">Source</th>
                     <th className="p-4 font-semibold">Stat</th>
-                    <th className="p-4 font-semibold">Seasons</th>
-                    <th className="p-4 font-semibold text-right">Career</th>
+                    <SortableHeader
+                      label="Seasons"
+                      active={careerSort === "seasonsCount"}
+                      order={careerOrder}
+                      onClick={() => handleCareerSort("seasonsCount")}
+                    />
+                    <SortableHeader
+                      label="Career Total"
+                      align="right"
+                      active={careerSort === "total"}
+                      order={careerOrder}
+                      onClick={() => handleCareerSort("total")}
+                    />
                   </>
                 ) : (
                   <>
@@ -508,6 +549,44 @@ export function StatsExplorer({ fixedTeam }: { fixedTeam?: string }) {
         )}
       </Card>
     </div>
+  );
+}
+
+function SortableHeader({
+  label,
+  active,
+  order,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  active: boolean;
+  order: "asc" | "desc";
+  onClick: () => void;
+  align?: "left" | "right";
+}) {
+  return (
+    <th className={`p-4 font-semibold ${align === "right" ? "text-right" : ""}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-sort={active ? (order === "asc" ? "ascending" : "descending") : "none"}
+        className={`inline-flex items-center gap-1 uppercase tracking-wider transition-colors hover:text-foreground ${
+          align === "right" ? "flex-row-reverse" : ""
+        } ${active ? "text-foreground" : ""}`}
+      >
+        {label}
+        {active ? (
+          order === "asc" ? (
+            <ChevronUp className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5" />
+          )
+        ) : (
+          <ChevronsUpDown className="w-3.5 h-3.5 opacity-50" />
+        )}
+      </button>
+    </th>
   );
 }
 

@@ -62,6 +62,13 @@ export const playerCareerStatsTable = pgTable(
     index("player_career_source_total_idx").on(t.source, t.total.desc()),
     // Stat-key filter + total-desc ordering (e.g. only OffensiveYards).
     index("player_career_key_total_idx").on(t.key, t.total.desc()),
+    // Sort by seasons played (btree scans either direction, so it serves both
+    // asc and desc). Used by the Career view's "Seasons" column sort.
+    index("player_career_seasons_count_idx").on(t.seasonsCount),
+    // Sort by most-recent season played ("Career Total"/recency comparisons).
+    index("player_career_last_season_idx").on(t.lastSeason),
+    // Sort alphabetically by the display name (Career view "Player" column).
+    index("player_career_display_name_idx").on(t.displayName),
     // Substring name search (ILIKE %term%) on the normalized name — needs a
     // trigram GIN index (a leading-wildcard ILIKE cannot use a btree). Requires
     // the pg_trgm extension (created in buildCareerStats / migrations).

@@ -5,6 +5,8 @@
  * LSU Football player database API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListCareerStatsOrder } from './listCareerStatsOrder';
+import type { ListCareerStatsSort } from './listCareerStatsSort';
 
 export type ListCareerStatsParams = {
 /**
@@ -16,6 +18,14 @@ search?: string;
  * Single stat key or comma-separated list of stat keys.
  */
 key?: string;
+/**
+ * Column to sort by. Defaults to total.
+ */
+sort?: ListCareerStatsSort;
+/**
+ * Sort direction. Defaults to desc.
+ */
+order?: ListCareerStatsOrder;
 page?: number;
 pageSize?: number;
 };

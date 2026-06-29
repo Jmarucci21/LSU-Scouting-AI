@@ -153,6 +153,8 @@ paths:
         - { name: source, in: query, required: false, description: "Single source or comma-separated list of sources.", schema: { type: string } }
         - { name: search, in: query, required: false, schema: { type: string } }
         - { name: key, in: query, required: false, description: "Single stat key or comma-separated list of stat keys.", schema: { type: string } }
+        - { name: sort, in: query, required: false, description: "Column to sort by. Defaults to total.", schema: { type: string, enum: [total, seasonsCount, lastSeason, name] } }
+        - { name: order, in: query, required: false, description: "Sort direction. Defaults to desc.", schema: { type: string, enum: [asc, desc] } }
         - { name: page, in: query, required: false, schema: { type: integer } }
         - { name: pageSize, in: query, required: false, schema: { type: integer } }
       responses:

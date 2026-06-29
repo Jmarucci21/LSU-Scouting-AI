@@ -281,7 +281,7 @@ router.get("/stats/career", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { source, search, key, page, pageSize } = parsed.data;
+  const { source, search, key, sort, order, page, pageSize } = parsed.data;
 
   const sourceList = parseList(source);
   const keyList = parseList(key);
@@ -305,6 +305,48 @@ router.get("/stats/career", async (req, res): Promise<void> => {
   const limit = pageSize && pageSize > 0 ? Math.min(pageSize, 200) : 50;
   const offset = (currentPage - 1) * limit;
 
+  // Resolve the sort column + direction (default: total desc, the classic
+  // "rank careers" view). Each sortable column has a supporting btree index on
+  // player_career_stats so this stays fast on the ~8M-row table. A stable
+  // tie-breaker keeps pagination deterministic across pages.
+  const dir = order === "asc" ? asc : desc;
+  const sortCol = sort ?? "total";
+  // Rank ties (and the default sort) by `total DESC NULLS LAST` via raw SQL —
+  // not drizzle's `desc()`, which is NULLS FIRST — so the planner can ride the
+  // `(total)` / `(source,total)` / `(key,total)` btree indexes (all NULLS LAST)
+  // via an incremental sort instead of a full seq-scan + top-N over ~8M rows
+  // (~25s -> ~150ms).
+  const totalRank = sql`${playerCareerStatsTable.total} desc nulls last`;
+  let orderBy: SQL[];
+  switch (sortCol) {
+    case "seasonsCount":
+      orderBy = [
+        dir(playerCareerStatsTable.seasonsCount),
+        totalRank,
+        asc(playerCareerStatsTable.displayName),
+      ];
+      break;
+    case "lastSeason":
+      orderBy = [
+        dir(playerCareerStatsTable.lastSeason),
+        totalRank,
+        asc(playerCareerStatsTable.displayName),
+      ];
+      break;
+    case "name":
+      orderBy = [dir(playerCareerStatsTable.displayName), totalRank];
+      break;
+    case "total":
+    default:
+      orderBy = [
+        order === "asc"
+          ? sql`${playerCareerStatsTable.total} asc nulls last`
+          : totalRank,
+        asc(playerCareerStatsTable.displayName),
+      ];
+      break;
+  }
+
   // Over-fetch one row so we always know if a next page exists, independent of
   // the count estimate below. This keeps the "Next" control boundary-correct
   // even when `total` is approximate (see the unfiltered branch).
@@ -312,14 +354,7 @@ router.get("/stats/career", async (req, res): Promise<void> => {
     .select()
     .from(playerCareerStatsTable)
     .where(where)
-    // `total DESC NULLS LAST` (not drizzle's `desc()`, which is NULLS FIRST) so
-    // the planner can ride the `(total)` / `(source,total)` / `(key,total)`
-    // btree indexes (all defined NULLS LAST) via an incremental sort instead of
-    // a full seq-scan + top-N over ~8M rows (~25s -> ~150ms).
-    .orderBy(
-      sql`${playerCareerStatsTable.total} desc nulls last`,
-      asc(playerCareerStatsTable.displayName),
-    )
+    .orderBy(...orderBy)
     .limit(limit + 1)
     .offset(offset);
   const hasMore = fetched.length > limit;

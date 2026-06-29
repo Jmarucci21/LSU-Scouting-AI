@@ -454,9 +454,35 @@ search?: string;
  * Single stat key or comma-separated list of stat keys.
  */
 key?: string;
+/**
+ * Column to sort by. Defaults to total.
+ */
+sort?: ListCareerStatsSort;
+/**
+ * Sort direction. Defaults to desc.
+ */
+order?: ListCareerStatsOrder;
 page?: number;
 pageSize?: number;
 };
+
+export type ListCareerStatsSort = typeof ListCareerStatsSort[keyof typeof ListCareerStatsSort];
+
+
+export const ListCareerStatsSort = {
+  total: 'total',
+  seasonsCount: 'seasonsCount',
+  lastSeason: 'lastSeason',
+  name: 'name',
+} as const;
+
+export type ListCareerStatsOrder = typeof ListCareerStatsOrder[keyof typeof ListCareerStatsOrder];
+
+
+export const ListCareerStatsOrder = {
+  asc: 'asc',
+  desc: 'desc',
+} as const;
 
 export type GetStatsMetaParams = {
 season?: number;

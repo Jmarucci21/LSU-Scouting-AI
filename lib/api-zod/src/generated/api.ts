@@ -168,6 +168,8 @@ export const ListCareerStatsQueryParams = zod.object({
   "source": zod.coerce.string().optional().describe('Single source or comma-separated list of sources.'),
   "search": zod.coerce.string().optional(),
   "key": zod.coerce.string().optional().describe('Single stat key or comma-separated list of stat keys.'),
+  "sort": zod.enum(['total', 'seasonsCount', 'lastSeason', 'name']).optional().describe('Column to sort by. Defaults to total.'),
+  "order": zod.enum(['asc', 'desc']).optional().describe('Sort direction. Defaults to desc.'),
   "page": zod.coerce.number().optional(),
   "pageSize": zod.coerce.number().optional()
 })
