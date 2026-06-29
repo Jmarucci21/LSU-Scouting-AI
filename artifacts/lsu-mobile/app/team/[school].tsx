@@ -65,6 +65,8 @@ export default function TeamDetailScreen() {
   const roster = rosterQuery.data?.players ?? [];
   const rosterTotal = rosterQuery.data?.total ?? roster.length;
 
+  const rosterSeason = roster[0]?.season ?? null;
+
   const header = (
     <View>
       <LinearGradient
@@ -176,17 +178,29 @@ export default function TeamDetailScreen() {
         </View>
       ) : null}
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 20,
+          marginBottom: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
         <Text
           style={{
             color: colors.foreground,
             fontSize: 18,
             fontFamily: "Inter_700Bold",
-            marginBottom: 12,
           }}
         >
           Roster by WAR
         </Text>
+        {rosterSeason != null ? (
+          <Badge label={`${rosterSeason} Roster`} tone="gold" />
+        ) : null}
       </View>
     </View>
   );

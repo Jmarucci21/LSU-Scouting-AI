@@ -125,8 +125,11 @@ export function TeamDetail() {
 
         <TabsContent value="roster" className="flex-1 min-h-0 mt-4">
           <Card className="h-full overflow-hidden shadow-sm flex flex-col border-border">
-            <div className="p-4 border-b border-border bg-muted/30">
+            <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between gap-3">
               <h3 className="font-bold text-lg">Team Roster</h3>
+              <span className="text-sm font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-md whitespace-nowrap">
+                {season} Roster
+              </span>
             </div>
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left border-collapse">
