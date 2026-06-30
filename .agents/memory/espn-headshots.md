@@ -63,3 +63,39 @@ per-team pool (4); the global rate gate is the real ceiling now, not the pool.
 **Coverage note:** only players present in our DB for that season can match, and
 the DB only holds seasons that have a Telemetry roster loaded. Backfilling a
 season with no loaded roster matches 0.
+
+## Wikipedia fallback (layered behind ESPN)
+
+A second photo source fills NULL `photo_url` (ESPN-priority preserved: select
++ bulk-update both guard `photo_url IS NULL`). Used for the oldest seasons where
+ESPN is at its ceiling. Modest yield by design — only the more notable players
+have articles (313 matched for 2016+2017: 2016 31.1%→33.7%, 2017 52.9%→54.3%).
+
+**Use the MediaWiki Action API (`/w/api.php`), NOT REST `page/summary`.** The
+REST endpoint hard-429s our shared Replit egress IP on nearly *every* request
+(even a single clean curl), so it's unusable here. The Action API behaves AND
+lets you BATCH titles. **Why batching is mandatory, not just an optimization:**
+one-title-at-a-time over ~10k players self-DOSes the shared IP into a 429 storm
+(symptom: even manual curls start 429ing while your own job runs). Batching
+collapses ~20k requests to a few hundred, which the throttle tolerates. Batch
+size cap is **20** — the TextExtracts (`extracts`) prop limits to 20 titles/req,
+and we need the intro extract to verify the player's school.
+
+**Precision-first matching:** accept a page only if it has a lead-image
+thumbnail AND its description+intro-extract (lowercased) contain "football" AND
+the player's school. Tying the image to the school rules out same-named athletes
+at other programs / other sports. A wrong face is worse than a missing one.
+
+**Title→player mapping with batches:** the Action API normalizes + redirects
+titles internally and reports the hops in `query.normalized` / `query.redirects`;
+replay those hops (they can chain AND interleave — loop both until stable) to map
+each result page back to the EXACT input title. `missing` and
+`pageprops.disambiguation` pages → null.
+
+**Two passes:** plain name title, then `"{name} (American football)"` for names
+that didn't match (catches plain titles that are a different person or a
+disambiguation). Group lookups by normalized name (dedupe across seasons/ids);
+keep same-name-different-school players as separate entries so school-acceptance
+only stamps the right person. Skip single-token names. Trigger: `POST
+/api/sync/wikipedia {fromSeason?,toSeason?}`; shares the `syncing` guard +
+`/sync/status`. Throughput ~530 names/min batched (was ~50/min unbatched).

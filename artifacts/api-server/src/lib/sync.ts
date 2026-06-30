@@ -1,4 +1,4 @@
-import { sql, and, eq, inArray } from "drizzle-orm";
+import { sql, and, eq, inArray, isNull, gte, lte } from "drizzle-orm";
 import {
   db,
   teamsTable,
@@ -41,6 +41,11 @@ import {
   fetchEspnRosterForSeason,
   type EspnTeam,
 } from "./sources/espn";
+import {
+  fetchWikiBatch,
+  WIKI_BATCH_SIZE,
+  type WikiPage,
+} from "./sources/wikipedia";
 import { expandConference } from "./taxonomy";
 
 let syncing = false;
@@ -1488,6 +1493,236 @@ async function performEspnBackfill(
             );
         }
       }
+    }
+  } finally {
+    syncing = false;
+    progress = { phase: "idle", processed: 0, total: 0 };
+  }
+}
+
+// --- Wikipedia headshots fallback ----------------------------------------
+
+// Confirm a Wikipedia page is actually THIS player before stamping their photo.
+// Precision-first: a wrong face is worse than a missing one, so we require the
+// article text to (a) have a usable lead image, (b) mention football, and (c)
+// name the player's school — which ties the image to the specific person and
+// rules out a same-named athlete at another program or someone in another sport.
+function wikiMatchesPlayer(page: WikiPage, team: string | null): boolean {
+  if (!page.imageUrl || !team) return false;
+  const text = `${page.descLower} ${page.extractLower}`;
+  if (!text.includes("football")) return false;
+  return text.includes(team.toLowerCase());
+}
+
+type WikiCand = { name: string; team: string | null };
+
+/**
+ * Fill missing player headshots from Wikipedia, layered BEHIND ESPN: only
+ * players whose photo_url is still null (in the season range) are looked up, so
+ * ESPN photos are never overwritten. Lookups are deduped by normalized name
+ * (the same person recurs across seasons and under both Telemetry and tm-* ids)
+ * and BATCHED through the Action API (~20 titles/request) to stay well under
+ * Wikimedia's shared-IP throttle. A confirmed match stamps photo_url on ALL of
+ * that name's matching player_ids (and a player_id propagates across all its
+ * seasons). Two passes per name: the plain title, then "{name} (American
+ * football)" for names that didn't resolve to the right footballer. Modest yield
+ * by design (mostly the more notable players have articles). Returns players
+ * matched.
+ */
+async function ingestWikipediaPhotos(
+  fromSeason: number,
+  toSeason: number,
+): Promise<number> {
+  progress = { phase: "Wikipedia photos: loading players", processed: 0, total: 0 };
+  const rows = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(
+      and(
+        isNull(playersTable.photoUrl),
+        gte(playersTable.season, fromSeason),
+        lte(playersTable.season, toSeason),
+      ),
+    );
+
+  // Group missing players by normalized name. Same-name players at DIFFERENT
+  // schools are kept as separate entries so acceptance (which checks the school)
+  // only stamps the right person. A representative display name per group is the
+  // title we query.
+  const byName = new Map<string, { title: string; entries: Map<string, WikiCand> }>();
+  for (const r of rows) {
+    if (!r.playerName) continue;
+    const key = normName(r.playerName);
+    // Single-token names are too ambiguous to look up reliably.
+    if (key.split(" ").length < 2) continue;
+    let g = byName.get(key);
+    if (!g) {
+      g = { title: r.playerName, entries: new Map() };
+      byName.set(key, g);
+    }
+    if (!g.entries.has(r.playerId))
+      g.entries.set(r.playerId, { name: r.playerName, team: r.team });
+  }
+
+  const photoById = new Map<string, string>();
+  const total = byName.size;
+  let processed = 0;
+  const phase = `Wikipedia photos: matching (${fromSeason}-${toSeason})`;
+  progress = { phase, processed, total };
+
+  // Apply a resolved page to a name's entries; returns true if anything matched.
+  function applyPage(key: string, page: WikiPage | null): boolean {
+    if (!page) return false;
+    const g = byName.get(key);
+    if (!g) return false;
+    let matched = false;
+    for (const [pid, info] of g.entries) {
+      if (wikiMatchesPlayer(page, info.team)) {
+        photoById.set(pid, page.imageUrl!);
+        matched = true;
+      }
+    }
+    return matched;
+  }
+
+  // Run a set of (key -> title) lookups in batches of WIKI_BATCH_SIZE, a few
+  // batches in parallel. Returns the keys that did NOT match (for a fallback).
+  async function runPass(
+    lookups: { key: string; title: string }[],
+  ): Promise<string[]> {
+    processed = 0;
+    const passTotal = lookups.length;
+    progress = { phase, processed, total: passTotal };
+    const batches: { key: string; title: string }[][] = [];
+    for (let i = 0; i < lookups.length; i += WIKI_BATCH_SIZE)
+      batches.push(lookups.slice(i, i + WIKI_BATCH_SIZE));
+    const unmatched: string[] = [];
+    await mapPool(batches, 4, async (batch) => {
+      try {
+        const titleToKey = new Map(batch.map((b) => [b.title, b.key]));
+        const result = await fetchWikiBatch(batch.map((b) => b.title));
+        for (const [title, key] of titleToKey) {
+          if (!applyPage(key, result.get(title) ?? null)) unmatched.push(key);
+        }
+      } catch (e) {
+        logger.warn(
+          { err: (e as Error).message, size: batch.length },
+          "Wikipedia batch failed (skipped)",
+        );
+        for (const b of batch) unmatched.push(b.key);
+      } finally {
+        processed += batch.length;
+        progress = { phase, processed, total: passTotal };
+      }
+    });
+    return unmatched;
+  }
+
+  // Pass 1: plain titles. Pass 2: "(American football)" for the leftovers — this
+  // re-walks names whose plain title was a different person or a disambiguation.
+  const plain = [...byName].map(([key, g]) => ({ key, title: g.title }));
+  const leftovers = await runPass(plain);
+  const fallback = leftovers.map((key) => ({
+    key,
+    title: `${byName.get(key)!.title} (American football)`,
+  }));
+  if (fallback.length) await runPass(fallback);
+
+  if (photoById.size === 0) return 0;
+
+  const updates = [...photoById.entries()];
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < updates.length; i += 500) {
+      const batch = updates.slice(i, i + 500);
+      const values = sql.join(
+        batch.map(([pid, url]) => sql`(${pid}, ${url})`),
+        sql`, `,
+      );
+      await tx.execute(sql`
+        UPDATE ${playersTable} AS p
+        SET photo_url = v.url
+        FROM (VALUES ${values}) AS v(pid, url)
+        WHERE p.player_id = v.pid::text AND p.photo_url IS NULL
+      `);
+    }
+  });
+
+  logger.info(
+    { fromSeason, toSeason, missingNames: total, matchedPlayers: photoById.size },
+    "Wikipedia photos ingest complete",
+  );
+  return photoById.size;
+}
+
+export function startWikipediaBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
+  if (syncing) {
+    return {
+      status: "running",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season: toSeason,
+      message: "A sync is already running",
+    };
+  }
+  syncing = true;
+  progress = { phase: "Starting Wikipedia photo backfill", processed: 0, total: 0 };
+  void performWikipediaBackfill(fromSeason, toSeason, trigger).catch((e) => {
+    logger.error({ err: (e as Error).message }, "Wikipedia photo backfill crashed");
+  });
+  return {
+    status: "running",
+    playersSynced: 0,
+    teamsSynced: 0,
+    season: toSeason,
+    message: `Wikipedia photo backfill started for ${fromSeason}-${toSeason}. This runs in the background.`,
+  };
+}
+
+async function performWikipediaBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger,
+): Promise<void> {
+  let meta: { id: number } | undefined;
+  try {
+    [meta] = await db
+      .insert(syncMetaTable)
+      .values({ status: "running", season: toSeason, trigger })
+      .returning();
+    const matched = await ingestWikipediaPhotos(fromSeason, toSeason);
+    const message = `Wikipedia photos: matched ${matched} players for ${fromSeason}-${toSeason}`;
+    await db
+      .update(syncMetaTable)
+      .set({
+        status: "success",
+        playersSynced: matched,
+        message,
+        finishedAt: new Date(),
+      })
+      .where(sql`${syncMetaTable.id} = ${meta.id}`);
+    logger.info({ fromSeason, toSeason, matched }, "Wikipedia photo backfill complete");
+  } catch (e) {
+    const message = (e as Error).message;
+    logger.error({ err: message }, "Wikipedia photo backfill failed");
+    if (meta) {
+      await db
+        .update(syncMetaTable)
+        .set({ status: "error", message, finishedAt: new Date() })
+        .where(sql`${syncMetaTable.id} = ${meta.id}`)
+        .catch((err) =>
+          logger.error(
+            { err: (err as Error).message },
+            "Failed to record Wikipedia photo backfill error",
+          ),
+        );
     }
   } finally {
     syncing = false;

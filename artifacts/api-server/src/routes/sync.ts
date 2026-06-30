@@ -11,12 +11,15 @@ import {
   RunEspnPhotosBody,
   RunEspnBackfillResponse,
   RunEspnBackfillBody,
+  RunWikipediaBackfillResponse,
+  RunWikipediaBackfillBody,
 } from "@workspace/api-zod";
 import {
   startSync,
   startTrumediaBackfill,
   startEspnPhotos,
   startEspnBackfill,
+  startWikipediaBackfill,
   getSourceStatuses,
   isSyncing,
   getProgress,
@@ -152,6 +155,35 @@ router.post("/sync/espn/backfill", async (req, res): Promise<void> => {
   const result = startEspnBackfill(fromSeason, toSeason);
   res.json(
     RunEspnBackfillResponse.parse({
+      status: result.status,
+      playersSynced: result.playersSynced,
+      teamsSynced: result.teamsSynced,
+      season: result.season,
+      message: result.message,
+    }),
+  );
+});
+
+router.post("/sync/wikipedia", async (req, res): Promise<void> => {
+  const parsed = RunWikipediaBackfillBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const now = new Date();
+  const currentSeason =
+    now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  const fromSeason = parsed.data.fromSeason ?? 2016;
+  const toSeason = parsed.data.toSeason ?? currentSeason;
+  if (fromSeason > toSeason) {
+    res.status(400).json({ error: "fromSeason must be <= toSeason" });
+    return;
+  }
+
+  const result = startWikipediaBackfill(fromSeason, toSeason);
+  res.json(
+    RunWikipediaBackfillResponse.parse({
       status: result.status,
       playersSynced: result.playersSynced,
       teamsSynced: result.teamsSynced,

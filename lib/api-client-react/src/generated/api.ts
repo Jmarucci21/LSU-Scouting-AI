@@ -1493,3 +1493,73 @@ export const useRunEspnBackfill = <TError = ErrorType<Error>,
       return useMutation(getRunEspnBackfillMutationOptions(options));
     }
 
+export const getRunWikipediaBackfillUrl = () => {
+
+
+
+
+  return `/api/sync/wikipedia`
+}
+
+/**
+ * @summary Backfill player headshots from Wikipedia for players missing a photo
+ */
+export const runWikipediaBackfill = async (trumediaBackfillInput?: TrumediaBackfillInput, options?: RequestInit): Promise<SyncStatus> => {
+
+  return customFetch<SyncStatus>(getRunWikipediaBackfillUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trumediaBackfillInput)
+  }
+);}
+
+
+
+
+export const getRunWikipediaBackfillMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runWikipediaBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runWikipediaBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext> => {
+
+const mutationKey = ['runWikipediaBackfill'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runWikipediaBackfill>>, {data?: BodyType<TrumediaBackfillInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runWikipediaBackfill(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunWikipediaBackfillMutationResult = NonNullable<Awaited<ReturnType<typeof runWikipediaBackfill>>>
+    export type RunWikipediaBackfillMutationBody = BodyType<TrumediaBackfillInput> | undefined
+    export type RunWikipediaBackfillMutationError = ErrorType<Error>
+
+    /**
+ * @summary Backfill player headshots from Wikipedia for players missing a photo
+ */
+export const useRunWikipediaBackfill = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runWikipediaBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runWikipediaBackfill>>,
+        TError,
+        {data?: BodyType<TrumediaBackfillInput>},
+        TContext
+      > => {
+      return useMutation(getRunWikipediaBackfillMutationOptions(options));
+    }
+
