@@ -56,6 +56,11 @@ import {
   WIKI_BATCH_SIZE,
   type WikiPage,
 } from "./sources/wikipedia";
+import {
+  TEAM_SITES,
+  fetchTeamSiteRoster,
+  type TeamSiteRosterPlayer,
+} from "./sources/teamsites";
 import { expandConference } from "./taxonomy";
 
 let syncing = false;
@@ -1779,6 +1784,222 @@ async function performWikipediaBackfill(
           logger.error(
             { err: (err as Error).message },
             "Failed to record Wikipedia photo backfill error",
+          ),
+        );
+    }
+  } finally {
+    syncing = false;
+    progress = { phase: "idle", processed: 0, total: 0 };
+  }
+}
+
+// --- Team-athletics-website headshots fallback ---------------------------
+
+/**
+ * Fill missing player headshots from official college athletics websites for a
+ * SINGLE season, layered BEHIND ESPN + Wikipedia (only photo_url-null players in
+ * that season are looked up, so existing photos are never overwritten). For each
+ * school we know a domain for (TEAM_SITES), we fetch that school's archived
+ * roster page and match players by normalized name WITHIN that school — the
+ * fetch is school-scoped, so a same-named player at another program can never be
+ * cross-stamped (precision-first). A matched player_id stamps photo_url on all
+ * of that id's season rows (guarded by photo_url IS NULL). Returns players
+ * matched. Aimed at the oldest seasons (2016/2017) where ESPN hits its ceiling.
+ */
+async function ingestTeamSitePhotos(season: number): Promise<number> {
+  progress = {
+    phase: `Team sites: loading players (${season})`,
+    processed: 0,
+    total: 0,
+  };
+  const rows = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(
+      and(isNull(playersTable.photoUrl), eq(playersTable.season, season)),
+    );
+
+  // Group missing players by school, then by normalized name -> player_ids
+  // (a name can map to several ids: tm-* and Telemetry rows for the same person).
+  // We also track the distinct RAW names behind each normalized key so we can
+  // detect true collisions (two different teammates whose names normalize the
+  // same, e.g. "Mike Williams" vs "Mike Williams Jr.") and skip them — stamping
+  // one person's headshot onto another is worse than leaving it blank.
+  // Only schools we have a domain for are worth fetching.
+  const bySchool = new Map<
+    string,
+    Map<string, { ids: Set<string>; rawNames: Set<string> }>
+  >();
+  for (const r of rows) {
+    if (!r.playerName || !r.team) continue;
+    if (!TEAM_SITES[r.team]) continue;
+    let nameMap = bySchool.get(r.team);
+    if (!nameMap) {
+      nameMap = new Map();
+      bySchool.set(r.team, nameMap);
+    }
+    const key = normName(r.playerName);
+    if (key.split(" ").length < 2) continue;
+    let entry = nameMap.get(key);
+    if (!entry) {
+      entry = { ids: new Set(), rawNames: new Set() };
+      nameMap.set(key, entry);
+    }
+    entry.ids.add(r.playerId);
+    entry.rawNames.add(r.playerName.trim().toLowerCase());
+  }
+
+  const schools = [...bySchool.keys()];
+  const photoById = new Map<string, string>();
+  let processed = 0;
+  const total = schools.length;
+  const phase = `Team sites: matching rosters (${season})`;
+  progress = { phase, processed, total };
+
+  await mapPool(schools, 6, async (school) => {
+    try {
+      const domain = TEAM_SITES[school];
+      const roster = await fetchTeamSiteRoster(domain, season);
+      const nameMap = bySchool.get(school);
+      if (nameMap) {
+        // Count roster entries per normalized name so we can skip names that
+        // are ambiguous on the roster side (two different roster players share
+        // a normalized name) — we cannot tell which face is which.
+        const rosterByKey = new Map<string, TeamSiteRosterPlayer[]>();
+        for (const rp of roster) {
+          const k = normName(rp.name);
+          const arr = rosterByKey.get(k);
+          if (arr) arr.push(rp);
+          else rosterByKey.set(k, [rp]);
+        }
+        for (const [key, matches] of rosterByKey) {
+          if (matches.length > 1) continue; // ambiguous roster-side
+          const entry = nameMap.get(key);
+          if (!entry) continue;
+          if (entry.rawNames.size > 1) continue; // ambiguous DB-side
+          const url = matches[0].photoUrl;
+          for (const pid of entry.ids) {
+            if (!photoById.has(pid)) photoById.set(pid, url);
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn(
+        { school, season, err: (e as Error).message },
+        "Team-site roster fetch failed (skipped)",
+      );
+    } finally {
+      processed += 1;
+      progress = { phase, processed, total };
+    }
+  });
+
+  if (photoById.size === 0) return 0;
+
+  const updates = [...photoById.entries()];
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < updates.length; i += 500) {
+      const batch = updates.slice(i, i + 500);
+      const values = sql.join(
+        batch.map(([pid, url]) => sql`(${pid}, ${url})`),
+        sql`, `,
+      );
+      await tx.execute(sql`
+        UPDATE ${playersTable} AS p
+        SET photo_url = v.url
+        FROM (VALUES ${values}) AS v(pid, url)
+        WHERE p.player_id = v.pid::text AND p.photo_url IS NULL
+      `);
+    }
+  });
+
+  logger.info(
+    { season, schools: schools.length, matchedPlayers: photoById.size },
+    "Team-site photos ingest complete",
+  );
+  return photoById.size;
+}
+
+export function startTeamSitesBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
+  if (syncing) {
+    return {
+      status: "running",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season: toSeason,
+      message: "A sync is already running",
+    };
+  }
+  syncing = true;
+  progress = {
+    phase: "Starting team-site photo backfill",
+    processed: 0,
+    total: 0,
+  };
+  void performTeamSitesBackfill(fromSeason, toSeason, trigger).catch((e) => {
+    logger.error(
+      { err: (e as Error).message },
+      "Team-site photo backfill crashed",
+    );
+  });
+  return {
+    status: "running",
+    playersSynced: 0,
+    teamsSynced: 0,
+    season: toSeason,
+    message: `Team-site photo backfill started for ${fromSeason}-${toSeason}. This runs in the background.`,
+  };
+}
+
+async function performTeamSitesBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger,
+): Promise<void> {
+  let meta: { id: number } | undefined;
+  try {
+    [meta] = await db
+      .insert(syncMetaTable)
+      .values({ status: "running", season: toSeason, trigger })
+      .returning();
+    let matched = 0;
+    for (let s = fromSeason; s <= toSeason; s += 1) {
+      matched += await ingestTeamSitePhotos(s);
+    }
+    const message = `Team-site photos: matched ${matched} players for ${fromSeason}-${toSeason}`;
+    await db
+      .update(syncMetaTable)
+      .set({
+        status: "success",
+        playersSynced: matched,
+        message,
+        finishedAt: new Date(),
+      })
+      .where(sql`${syncMetaTable.id} = ${meta.id}`);
+    logger.info(
+      { fromSeason, toSeason, matched },
+      "Team-site photo backfill complete",
+    );
+  } catch (e) {
+    const message = (e as Error).message;
+    logger.error({ err: message }, "Team-site photo backfill failed");
+    if (meta) {
+      await db
+        .update(syncMetaTable)
+        .set({ status: "error", message, finishedAt: new Date() })
+        .where(sql`${syncMetaTable.id} = ${meta.id}`)
+        .catch((err) =>
+          logger.error(
+            { err: (err as Error).message },
+            "Failed to record team-site photo backfill error",
           ),
         );
     }

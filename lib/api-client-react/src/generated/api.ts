@@ -1635,3 +1635,73 @@ export const useRunWikipediaBackfill = <TError = ErrorType<Error>,
       return useMutation(getRunWikipediaBackfillMutationOptions(options));
     }
 
+export const getRunTeamSitesBackfillUrl = () => {
+
+
+
+
+  return `/api/sync/teamsites`
+}
+
+/**
+ * @summary Backfill player headshots from college athletics websites for players missing a photo
+ */
+export const runTeamSitesBackfill = async (trumediaBackfillInput?: TrumediaBackfillInput, options?: RequestInit): Promise<SyncStatus> => {
+
+  return customFetch<SyncStatus>(getRunTeamSitesBackfillUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trumediaBackfillInput)
+  }
+);}
+
+
+
+
+export const getRunTeamSitesBackfillMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runTeamSitesBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runTeamSitesBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext> => {
+
+const mutationKey = ['runTeamSitesBackfill'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runTeamSitesBackfill>>, {data?: BodyType<TrumediaBackfillInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runTeamSitesBackfill(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunTeamSitesBackfillMutationResult = NonNullable<Awaited<ReturnType<typeof runTeamSitesBackfill>>>
+    export type RunTeamSitesBackfillMutationBody = BodyType<TrumediaBackfillInput> | undefined
+    export type RunTeamSitesBackfillMutationError = ErrorType<Error>
+
+    /**
+ * @summary Backfill player headshots from college athletics websites for players missing a photo
+ */
+export const useRunTeamSitesBackfill = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runTeamSitesBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runTeamSitesBackfill>>,
+        TError,
+        {data?: BodyType<TrumediaBackfillInput>},
+        TContext
+      > => {
+      return useMutation(getRunTeamSitesBackfillMutationOptions(options));
+    }
+

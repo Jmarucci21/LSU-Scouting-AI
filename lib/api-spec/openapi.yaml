@@ -441,6 +441,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/teamsites:
+    post:
+      operationId: runTeamSitesBackfill
+      tags: [sync]
+      summary: Backfill player headshots from college athletics websites for players missing a photo
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrumediaBackfillInput"
+      responses:
+        "200":
+          description: Team-site photo backfill started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "503":
+          description: External source unavailable or not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
