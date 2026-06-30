@@ -3,6 +3,28 @@ const ESPN_BASE =
 const ESPN_CORE_BASE =
   "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football";
 const ESPN_TIMEOUT_MS = 20_000;
+// Serialize request *starts* so total throughput against ESPN's unauthenticated
+// API stays under its (undocumented) rate limit (~20 req/s). Without this the
+// per-athlete historical backfill bursts dozens of concurrent requests and ESPN
+// starts returning 403s, which silently dropped most players.
+const ESPN_MIN_INTERVAL_MS = 50;
+const ESPN_MAX_RETRIES = 5;
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((r) => setTimeout(r, ms));
+
+let nextSlot = 0;
+async function rateGate(): Promise<void> {
+  const now = Date.now();
+  const start = Math.max(now, nextSlot);
+  nextSlot = start + ESPN_MIN_INTERVAL_MS;
+  const wait = start - now;
+  if (wait > 0) await sleep(wait);
+}
+
+function backoffMs(attempt: number): number {
+  return Math.min(15_000, 500 * 2 ** attempt) + Math.random() * 400;
+}
 
 export type EspnTeam = {
   id: string;
@@ -20,14 +42,43 @@ export type EspnRosterPlayer = {
 };
 
 async function getJson(url: string): Promise<unknown> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ESPN_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`ESPN responded ${res.status} for ${url}`);
-    return (await res.json()) as unknown;
-  } finally {
-    clearTimeout(timer);
+  let attempt = 0;
+  for (;;) {
+    await rateGate();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ESPN_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      // 403/429 are rate-limiting (not auth) on ESPN's public API; 5xx are
+      // transient. Back off and retry rather than dropping the player.
+      if (
+        (res.status === 403 || res.status === 429 || res.status >= 500) &&
+        attempt < ESPN_MAX_RETRIES
+      ) {
+        attempt += 1;
+        clearTimeout(timer);
+        await sleep(backoffMs(attempt));
+        continue;
+      }
+      if (!res.ok) throw new Error(`ESPN responded ${res.status} for ${url}`);
+      return (await res.json()) as unknown;
+    } catch (e) {
+      // Network error / timeout: retry a few times before giving up. Don't retry
+      // a non-OK HTTP status we've already decided to surface.
+      const retryable =
+        e instanceof Error &&
+        !e.message.startsWith("ESPN responded") &&
+        attempt < ESPN_MAX_RETRIES;
+      if (retryable) {
+        attempt += 1;
+        clearTimeout(timer);
+        await sleep(backoffMs(attempt));
+        continue;
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
@@ -66,6 +117,26 @@ export async function fetchEspnTeams(): Promise<EspnTeam[]> {
     });
   }
   return teams;
+}
+
+/**
+ * The set of ESPN team ids classified as FBS (Division I-A) for a given season,
+ * via the core API's group=80 listing. Historical backfills restrict to these so
+ * we don't fetch rosters for ~600 FCS/D2/D3 teams (which inflates request volume
+ * and triggers rate-limiting) and so loose school-name matching can't pick a
+ * lower-division team by mistake. Returns an empty set on failure (caller then
+ * falls back to all teams).
+ */
+export async function fetchEspnFbsTeamIds(season: number): Promise<Set<string>> {
+  const j = (await getJson(
+    `${ESPN_CORE_BASE}/seasons/${season}/types/2/groups/80/teams?limit=300`,
+  )) as { items?: { $ref?: string }[] };
+  const ids = new Set<string>();
+  for (const it of j?.items ?? []) {
+    const m = it?.$ref?.match(/\/teams\/(\d+)/);
+    if (m) ids.add(m[1]);
+  }
+  return ids;
 }
 
 type RosterAthlete = {

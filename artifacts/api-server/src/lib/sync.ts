@@ -36,6 +36,7 @@ import {
 import { pffConfigured, checkPff } from "./sources/pff";
 import {
   fetchEspnTeams,
+  fetchEspnFbsTeamIds,
   fetchEspnRoster,
   fetchEspnRosterForSeason,
   type EspnTeam,
@@ -1211,8 +1212,28 @@ async function ingestEspnPhotos(
 ): Promise<number> {
   const historical = opts?.historical ?? false;
   progress = { phase: "ESPN photos: fetching teams", processed: 0, total: 0 };
-  const espnTeams = await fetchEspnTeams();
+  let espnTeams = await fetchEspnTeams();
   if (espnTeams.length === 0) return 0;
+
+  // Historical backfills restrict to FBS teams: ESPN headshots for FCS/D2/D3
+  // players barely exist, and fetching ~600 extra rosters (one request per
+  // athlete) both inflates request volume into ESPN's rate limit and lets the
+  // loose school-name matcher attach a lower-division team by mistake. The
+  // current-season path uses the site roster (one request per team) so it can
+  // afford the full list.
+  if (historical) {
+    try {
+      const fbsIds = await fetchEspnFbsTeamIds(season);
+      if (fbsIds.size > 0) {
+        espnTeams = espnTeams.filter((t) => fbsIds.has(t.id));
+      }
+    } catch (e) {
+      logger.warn(
+        { season, err: (e as Error).message },
+        "ESPN FBS team list fetch failed; using all teams",
+      );
+    }
+  }
 
   const conds = [eq(playersTable.season, season)];
   if (scope?.team) conds.push(eq(playersTable.team, scope.team));
