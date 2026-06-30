@@ -61,7 +61,7 @@ export function PlayerDetail() {
               src={player.photoUrl}
               alt={player.playerName}
               loading="lazy"
-              className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-sm bg-muted"
+              className="w-24 h-24 rounded-full object-cover object-top border-4 border-card shadow-sm bg-muted"
             />
           ) : (
             <div className="w-24 h-24 bg-primary/10 text-primary rounded-full flex items-center justify-center font-black text-4xl border-4 border-card shadow-sm">

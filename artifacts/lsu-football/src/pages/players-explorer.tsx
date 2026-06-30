@@ -187,7 +187,7 @@ export function PlayersExplorer() {
                               src={player.photoUrl}
                               alt=""
                               loading="lazy"
-                              className="h-9 w-9 rounded-full object-cover bg-muted shrink-0"
+                              className="h-9 w-9 rounded-full object-cover object-top bg-muted shrink-0"
                             />
                           ) : (
                             <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
