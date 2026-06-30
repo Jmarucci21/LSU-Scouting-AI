@@ -11,3 +11,4 @@
 - [ESPN + Wikipedia headshots](espn-headshots.md) — ESPN site(current)/core(historical) APIs; Wikipedia fallback fills NULL photo_url via BATCHED Action API (REST 429s shared IP; one-at-a-time self-DOSes), precision-first school match.
 - [StatsBomb position relevance](statsbomb-position-relevance.md) — StatsBomb `category` IS the position group; player-detail /players/:id/stats filters by statsbombCategoriesForPosition; Telemetry source excludes 'PFF Grades'.
 - [Drizzle bulk update with JS arrays](drizzle-bulk-update.md) — drizzle expands an interpolated JS array into `$1,$2,...` (not a pg array), so `unnest(${arr}::text[])` fails at runtime; use a VALUES list via sql.join for bulk UPDATE…FROM.
+- [App settings table](app-settings.md) — generic key/value app_settings table holds runtime-editable config (e.g. sync_schedule_hours); DB setting overrides env var, scheduler reads on startup + on PUT /sync/schedule.

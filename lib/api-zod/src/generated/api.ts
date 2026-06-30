@@ -613,6 +613,24 @@ export const RunEspnPhotosResponse = zod.object({
 
 
 /**
+ * @summary Set the automatic sync cadence
+ */
+export const updateSyncScheduleBodyIntervalHoursMin = 0;
+
+
+
+export const UpdateSyncScheduleBody = zod.object({
+  "intervalHours": zod.number().min(updateSyncScheduleBodyIntervalHoursMin).describe('Hours between automatic syncs; 0 disables automatic syncs.')
+})
+
+export const UpdateSyncScheduleResponse = zod.object({
+  "enabled": zod.boolean(),
+  "intervalHours": zod.number(),
+  "nextRunAt": zod.string().nullish()
+})
+
+
+/**
  * @summary Backfill ESPN player headshots across a range of past seasons
  */
 export const RunEspnBackfillBody = zod.object({

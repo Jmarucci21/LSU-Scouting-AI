@@ -369,6 +369,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/schedule:
+    put:
+      operationId: updateSyncSchedule
+      tags: [sync]
+      summary: Set the automatic sync cadence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleInput"
+      responses:
+        "200":
+          description: Updated scheduler status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchedulerStatus"
+        "400":
+          description: Invalid schedule value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /sync/espn/backfill:
     post:
       operationId: runEspnBackfill
@@ -613,6 +637,14 @@ components:
         enabled: { type: boolean }
         intervalHours: { type: number }
         nextRunAt: { type: ["string", "null"] }
+    ScheduleInput:
+      type: object
+      required: [intervalHours]
+      properties:
+        intervalHours:
+          type: integer
+          minimum: 0
+          description: Hours between automatic syncs; 0 disables automatic syncs.
     SyncRun:
       type: object
       required: [id, status, trigger]

@@ -1,11 +1,12 @@
 import { desc, eq } from "drizzle-orm";
-import { db, syncMetaTable } from "@workspace/db";
+import { db, syncMetaTable, appSettingsTable } from "@workspace/db";
 import { logger } from "./logger";
 import { startSync, isSyncing } from "./sync";
 
 const DEFAULT_INTERVAL_HOURS = 168; // weekly
 const STARTUP_DELAY_MS = 60_000; // wait a minute after boot before catching up
 const HOUR_MS = 3_600_000;
+const SCHEDULE_SETTING_KEY = "sync_schedule_hours";
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let nextRunAt: Date | null = null;
@@ -27,10 +28,36 @@ export function getSchedulerStatus(): SchedulerStatus {
 }
 
 /**
- * Resolve the configured interval. `SYNC_SCHEDULE_HOURS` controls the cadence;
- * set it to `0` to disable automatic syncs entirely. Defaults to weekly.
+ * Resolve the configured interval (in hours). The persisted DB setting takes
+ * precedence so scouts can change the cadence from the app; if no setting has
+ * been saved we fall back to the `SYNC_SCHEDULE_HOURS` env var, then weekly.
+ * A value of `0` disables automatic syncs entirely.
  */
-function resolveIntervalHours(): number {
+async function resolveIntervalHours(): Promise<number> {
+  try {
+    const [row] = await db
+      .select()
+      .from(appSettingsTable)
+      .where(eq(appSettingsTable.key, SCHEDULE_SETTING_KEY))
+      .limit(1);
+    if (row) {
+      const n = Number(row.value);
+      if (!Number.isNaN(n) && n >= 0) return n;
+      logger.warn(
+        { value: row.value },
+        "Invalid persisted sync schedule; falling back to env/default",
+      );
+    }
+  } catch (e) {
+    logger.warn(
+      { err: (e as Error).message },
+      "Could not read persisted sync schedule; falling back to env/default",
+    );
+  }
+  return resolveEnvIntervalHours();
+}
+
+function resolveEnvIntervalHours(): number {
   const raw = process.env["SYNC_SCHEDULE_HOURS"];
   if (raw === undefined || raw.trim() === "") return DEFAULT_INTERVAL_HOURS;
   const n = Number(raw);
@@ -66,26 +93,29 @@ async function runTick(): Promise<void> {
     logger.error({ err: (e as Error).message }, "Scheduled sync tick failed");
   } finally {
     // Always queue the next run one interval out, regardless of outcome.
-    scheduleNext(intervalHrs * HOUR_MS);
+    if (enabled) scheduleNext(intervalHrs * HOUR_MS);
   }
 }
 
 /**
- * Start the automatic sync scheduler. Uses the last successful sync to decide
- * when the next run is due: if the data is already older than one interval (or
- * has never synced), it catches up shortly after startup; otherwise it waits
- * out the remainder of the interval.
+ * Apply an interval (hours) to the scheduler: disable when <= 0, otherwise
+ * schedule the next run using the last successful sync to decide whether to
+ * catch up shortly after now or wait out the remainder of the interval.
  */
-export async function startScheduler(): Promise<void> {
-  intervalHrs = resolveIntervalHours();
-  if (intervalHrs <= 0) {
+async function applyInterval(hours: number): Promise<void> {
+  intervalHrs = hours;
+  if (hours <= 0) {
     enabled = false;
     nextRunAt = null;
-    logger.info("Automatic sync scheduler disabled (SYNC_SCHEDULE_HOURS=0)");
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    logger.info("Automatic sync scheduler disabled");
     return;
   }
   enabled = true;
-  const intervalMs = intervalHrs * HOUR_MS;
+  const intervalMs = hours * HOUR_MS;
 
   let delayMs = STARTUP_DELAY_MS;
   try {
@@ -108,7 +138,32 @@ export async function startScheduler(): Promise<void> {
 
   scheduleNext(delayMs);
   logger.info(
-    { intervalHours: intervalHrs, nextRunAt: nextRunAt?.toISOString() },
-    "Automatic sync scheduler started",
+    { intervalHours: hours, nextRunAt: nextRunAt?.toISOString() },
+    "Automatic sync scheduler scheduled",
   );
+}
+
+/**
+ * Start the automatic sync scheduler. Reads the persisted cadence (or env
+ * fallback) and schedules the next run accordingly.
+ */
+export async function startScheduler(): Promise<void> {
+  const hours = await resolveIntervalHours();
+  await applyInterval(hours);
+}
+
+/**
+ * Persist a new cadence (hours; `0` disables) and reschedule immediately so the
+ * change takes effect without a restart. Returns the resulting status.
+ */
+export async function setSchedule(hours: number): Promise<SchedulerStatus> {
+  await db
+    .insert(appSettingsTable)
+    .values({ key: SCHEDULE_SETTING_KEY, value: String(hours) })
+    .onConflictDoUpdate({
+      target: appSettingsTable.key,
+      set: { value: String(hours), updatedAt: new Date() },
+    });
+  await applyInterval(hours);
+  return getSchedulerStatus();
 }

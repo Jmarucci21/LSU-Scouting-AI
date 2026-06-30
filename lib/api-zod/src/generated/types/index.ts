@@ -39,6 +39,7 @@ export * from './playerStatItem';
 export * from './playerStatsResponse';
 export * from './positionGroupOption';
 export * from './positionGroupStat';
+export * from './scheduleInput';
 export * from './schedulerStatus';
 export * from './sourceKeys';
 export * from './sourceStats';

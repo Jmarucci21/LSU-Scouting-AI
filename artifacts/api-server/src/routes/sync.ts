@@ -13,6 +13,8 @@ import {
   RunEspnBackfillBody,
   RunWikipediaBackfillResponse,
   RunWikipediaBackfillBody,
+  UpdateSyncScheduleResponse,
+  UpdateSyncScheduleBody,
 } from "@workspace/api-zod";
 import {
   startSync,
@@ -24,7 +26,7 @@ import {
   isSyncing,
   getProgress,
 } from "../lib/sync";
-import { getSchedulerStatus } from "../lib/scheduler";
+import { getSchedulerStatus, setSchedule } from "../lib/scheduler";
 
 const router: IRouter = Router();
 
@@ -133,6 +135,17 @@ router.post("/sync/espn", async (req, res): Promise<void> => {
       message: result.message,
     }),
   );
+});
+
+router.put("/sync/schedule", async (req, res): Promise<void> => {
+  const parsed = UpdateSyncScheduleBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const status = await setSchedule(parsed.data.intervalHours);
+  res.json(UpdateSyncScheduleResponse.parse(status));
 });
 
 router.post("/sync/espn/backfill", async (req, res): Promise<void> => {

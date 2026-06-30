@@ -227,6 +227,14 @@ export interface SyncStatus {
   history?: SyncRun[];
 }
 
+export interface ScheduleInput {
+  /**
+     * Hours between automatic syncs; 0 disables automatic syncs.
+     * @minimum 0
+     */
+  intervalHours: number;
+}
+
 export interface SyncInput {
   season?: number;
   team?: string;

@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { useGetSyncStatus, useRunSync, useRunTrumediaBackfill, getGetSyncStatusQueryKey, getGetDashboardSummaryQueryKey, getGetTopPlayersQueryKey, getGetPositionGroupsQueryKey, getListPlayersQueryKey, getListTeamsQueryKey, getGetFiltersQueryKey } from "@workspace/api-client-react";
+import { useGetSyncStatus, useRunSync, useRunTrumediaBackfill, useUpdateSyncSchedule, getGetSyncStatusQueryKey, getGetDashboardSummaryQueryKey, getGetTopPlayersQueryKey, getGetPositionGroupsQueryKey, getListPlayersQueryKey, getListTeamsQueryKey, getGetFiltersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Database, RefreshCw, CheckCircle2, XCircle, AlertCircle, CalendarClock, User, Bot, History } from "lucide-react";
@@ -32,6 +33,9 @@ export function SyncAdmin() {
   });
   const runSync = useRunSync();
   const runTrumediaBackfill = useRunTrumediaBackfill();
+  const updateSchedule = useUpdateSyncSchedule();
+
+  const scheduleValue = !status?.scheduler?.enabled ? 0 : status.scheduler.intervalHours;
 
   const isRunning = !!status?.running || runSync.isPending || runTrumediaBackfill.isPending;
   const progress = status?.progress;
@@ -72,6 +76,28 @@ export function SyncAdmin() {
         toast({
           title: "Could not start sync",
           description: error?.message || "An error occurred while starting data synchronization.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleScheduleChange = (value: string) => {
+    const intervalHours = Number(value);
+    updateSchedule.mutate({ data: { intervalHours } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetSyncStatusQueryKey() });
+        toast({
+          title: "Schedule updated",
+          description: intervalHours === 0
+            ? "Automatic syncing is now turned off."
+            : `Data will now refresh ${formatInterval(intervalHours).toLowerCase()}.`,
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Could not update schedule",
+          description: error?.message || "An error occurred while updating the sync schedule.",
           variant: "destructive",
         });
       }
@@ -138,26 +164,35 @@ export function SyncAdmin() {
           {isLoading ? (
             <Skeleton className="h-8 w-2/3" />
           ) : status?.scheduler ? (
-            status.scheduler.enabled ? (
-              <div className="flex flex-col sm:flex-row gap-6">
+            <div className="flex flex-col sm:flex-row gap-6 sm:items-start">
+              <div>
+                <div className="text-sm font-semibold text-muted-foreground uppercase mb-1.5">Schedule</div>
+                <Select
+                  value={String(scheduleValue)}
+                  onValueChange={handleScheduleChange}
+                  disabled={updateSchedule.isPending}
+                >
+                  <SelectTrigger className="w-44 font-bold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Off</SelectItem>
+                    <SelectItem value="24">Daily</SelectItem>
+                    <SelectItem value="168">Weekly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {status.scheduler.enabled && (
                 <div>
-                  <div className="text-sm font-semibold text-muted-foreground uppercase">Schedule</div>
-                  <div className="text-lg font-bold">{formatInterval(status.scheduler.intervalHours)}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-muted-foreground uppercase">Next Run</div>
+                  <div className="text-sm font-semibold text-muted-foreground uppercase mb-1.5">Next Run</div>
                   <div className="text-lg font-bold">
                     {status.scheduler.nextRunAt
                       ? `${format(new Date(status.scheduler.nextRunAt), "MMM d, yyyy 'at' h:mm a")} (${formatDistanceToNow(new Date(status.scheduler.nextRunAt), { addSuffix: true })})`
                       : "Pending"}
                   </div>
                 </div>
-              </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">
-              Automatic syncing is disabled. Set <code className="font-mono bg-muted px-1 rounded">SYNC_SCHEDULE_HOURS</code> to enable it.
+              )}
             </div>
-          )
           ) : (
             <div className="text-sm text-muted-foreground">Scheduler status unavailable.</div>
           )}

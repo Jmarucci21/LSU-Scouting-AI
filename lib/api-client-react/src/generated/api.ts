@@ -38,6 +38,8 @@ import type {
   PlayerListResponse,
   PlayerStatsResponse,
   PositionGroupStat,
+  ScheduleInput,
+  SchedulerStatus,
   StatsExplorerResponse,
   StatsMetaResponse,
   SyncInput,
@@ -1421,6 +1423,76 @@ export const useRunEspnPhotos = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRunEspnPhotosMutationOptions(options));
+    }
+
+export const getUpdateSyncScheduleUrl = () => {
+
+
+
+
+  return `/api/sync/schedule`
+}
+
+/**
+ * @summary Set the automatic sync cadence
+ */
+export const updateSyncSchedule = async (scheduleInput: ScheduleInput, options?: RequestInit): Promise<SchedulerStatus> => {
+
+  return customFetch<SchedulerStatus>(getUpdateSyncScheduleUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scheduleInput)
+  }
+);}
+
+
+
+
+export const getUpdateSyncScheduleMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSyncSchedule>>, TError,{data: BodyType<ScheduleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSyncSchedule>>, TError,{data: BodyType<ScheduleInput>}, TContext> => {
+
+const mutationKey = ['updateSyncSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSyncSchedule>>, {data: BodyType<ScheduleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSyncSchedule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSyncScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof updateSyncSchedule>>>
+    export type UpdateSyncScheduleMutationBody = BodyType<ScheduleInput>
+    export type UpdateSyncScheduleMutationError = ErrorType<Error>
+
+    /**
+ * @summary Set the automatic sync cadence
+ */
+export const useUpdateSyncSchedule = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSyncSchedule>>, TError,{data: BodyType<ScheduleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSyncSchedule>>,
+        TError,
+        {data: BodyType<ScheduleInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateSyncScheduleMutationOptions(options));
     }
 
 export const getRunEspnBackfillUrl = () => {
