@@ -25,6 +25,7 @@ import {
   getSourceStatuses,
   isSyncing,
   getProgress,
+  getScheduledFailure,
 } from "../lib/sync";
 import { getSchedulerStatus, setSchedule } from "../lib/scheduler";
 
@@ -39,6 +40,7 @@ router.get("/sync/status", async (_req, res): Promise<void> => {
 
   const last = recent[0];
   const sources = await getSourceStatuses();
+  const scheduledFailure = await getScheduledFailure();
 
   const running = isSyncing();
   res.json(
@@ -55,6 +57,7 @@ router.get("/sync/status", async (_req, res): Promise<void> => {
       message: last?.message ?? null,
       sources,
       scheduler: getSchedulerStatus(),
+      scheduledFailure,
       history: recent.map((r) => ({
         id: r.id,
         status: r.status,

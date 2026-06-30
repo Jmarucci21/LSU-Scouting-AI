@@ -190,6 +190,15 @@ export interface SchedulerStatus {
   nextRunAt?: string | null;
 }
 
+export interface ScheduledFailure {
+  /** @nullable */
+  season: number | null;
+  /** @nullable */
+  message: string | null;
+  /** @nullable */
+  failedAt: string | null;
+}
+
 export interface SyncRun {
   id: number;
   status: string;
@@ -224,6 +233,7 @@ export interface SyncStatus {
   message?: string | null;
   sources?: SourceStatus[];
   scheduler?: SchedulerStatus;
+  scheduledFailure?: ScheduledFailure | null;
   history?: SyncRun[];
 }
 

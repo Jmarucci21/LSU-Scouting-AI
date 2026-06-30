@@ -1,4 +1,14 @@
-import { sql, and, eq, inArray, isNull, gte, lte } from "drizzle-orm";
+import {
+  sql,
+  and,
+  eq,
+  gt,
+  desc,
+  inArray,
+  isNull,
+  gte,
+  lte,
+} from "drizzle-orm";
 import {
   db,
   teamsTable,
@@ -64,6 +74,54 @@ let progress: SyncProgress = { phase: "idle", processed: 0, total: 0 };
 
 export function getProgress(): SyncProgress {
   return progress;
+}
+
+export type ScheduledFailure = {
+  season: number | null;
+  message: string | null;
+  failedAt: string | null;
+};
+
+/**
+ * Surface an active scheduled-sync failure for proactive alerting. Returns the
+ * most recent scheduled run that ended in "error" ONLY if no sync (manual or
+ * scheduled) has succeeded since — i.e. the alert auto-clears the moment a
+ * later sync succeeds. Manual failures are intentionally ignored: a person
+ * triggered those and already saw the result.
+ */
+export async function getScheduledFailure(): Promise<ScheduledFailure | null> {
+  const [lastScheduledError] = await db
+    .select()
+    .from(syncMetaTable)
+    .where(
+      and(
+        eq(syncMetaTable.trigger, "scheduled"),
+        eq(syncMetaTable.status, "error"),
+      ),
+    )
+    .orderBy(desc(syncMetaTable.finishedAt))
+    .limit(1);
+
+  if (!lastScheduledError?.finishedAt) return null;
+
+  const [successSince] = await db
+    .select({ id: syncMetaTable.id })
+    .from(syncMetaTable)
+    .where(
+      and(
+        eq(syncMetaTable.status, "success"),
+        gt(syncMetaTable.finishedAt, lastScheduledError.finishedAt),
+      ),
+    )
+    .limit(1);
+
+  if (successSince) return null;
+
+  return {
+    season: lastScheduledError.season ?? null,
+    message: lastScheduledError.message ?? null,
+    failedAt: lastScheduledError.finishedAt.toISOString(),
+  };
 }
 
 export type SyncOptions = {

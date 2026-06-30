@@ -1,18 +1,49 @@
 import { useGlobalFilters } from "@/hooks/use-global-filters";
-import { useGetDashboardSummary, useGetPositionGroups } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetPositionGroups, useGetSyncStatus, getGetSyncStatusQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Shield, BarChart3 } from "lucide-react";
+import { Users, Shield, BarChart3, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
+import { format, formatDistanceToNow } from "date-fns";
 
 export function Dashboard() {
   const { season, team } = useGlobalFilters();
   
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary({ season, team });
   const { data: posGroups, isLoading: loadingPosGroups } = useGetPositionGroups({ season, team });
+  const { data: syncStatus } = useGetSyncStatus({
+    query: {
+      queryKey: getGetSyncStatusQueryKey(),
+      refetchInterval: 60_000,
+    },
+  });
+  const scheduledFailure = syncStatus?.scheduledFailure;
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+      {scheduledFailure && (
+        <Alert variant="destructive" className="border-destructive/50">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Automatic sync failed</AlertTitle>
+          <AlertDescription className="space-y-1">
+            <p>
+              The last scheduled data sync{scheduledFailure.season != null ? ` for ${scheduledFailure.season}` : ""} failed
+              {scheduledFailure.failedAt ? ` ${formatDistanceToNow(new Date(scheduledFailure.failedAt), { addSuffix: true })}` : ""}
+              {scheduledFailure.failedAt ? ` (${format(new Date(scheduledFailure.failedAt), "MMM d, yyyy 'at' h:mm a")})` : ""}.
+              The scouting data may be stale until a sync succeeds.
+            </p>
+            {scheduledFailure.message && (
+              <p className="font-mono text-xs opacity-90">{scheduledFailure.message}</p>
+            )}
+            <p>
+              <Link href="/sync" className="font-semibold underline underline-offset-2">
+                Go to Data Sync to retry
+              </Link>
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
       <header>
         <h1 className="text-3xl font-black tracking-tight text-foreground">Overview</h1>
         <p className="text-muted-foreground mt-1 text-lg">

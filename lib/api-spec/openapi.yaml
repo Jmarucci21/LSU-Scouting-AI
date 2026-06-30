@@ -626,10 +626,21 @@ components:
             $ref: "#/components/schemas/SourceStatus"
         scheduler:
           $ref: "#/components/schemas/SchedulerStatus"
+        scheduledFailure:
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledFailure"
+            - type: "null"
         history:
           type: array
           items:
             $ref: "#/components/schemas/SyncRun"
+    ScheduledFailure:
+      type: object
+      required: [season, message, failedAt]
+      properties:
+        season: { type: ["integer", "null"] }
+        message: { type: ["string", "null"] }
+        failedAt: { type: ["string", "null"] }
     SchedulerStatus:
       type: object
       required: [enabled, intervalHours]

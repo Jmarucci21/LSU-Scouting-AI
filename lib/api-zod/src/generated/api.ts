@@ -458,6 +458,11 @@ export const GetSyncStatusResponse = zod.object({
   "intervalHours": zod.number(),
   "nextRunAt": zod.string().nullish()
 }).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
   "history": zod.array(zod.object({
   "id": zod.number(),
   "status": zod.string(),
@@ -505,6 +510,11 @@ export const RunSyncResponse = zod.object({
   "intervalHours": zod.number(),
   "nextRunAt": zod.string().nullish()
 }).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
   "history": zod.array(zod.object({
   "id": zod.number(),
   "status": zod.string(),
@@ -551,6 +561,11 @@ export const RunTrumediaBackfillResponse = zod.object({
   "intervalHours": zod.number(),
   "nextRunAt": zod.string().nullish()
 }).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
   "history": zod.array(zod.object({
   "id": zod.number(),
   "status": zod.string(),
@@ -598,6 +613,11 @@ export const RunEspnPhotosResponse = zod.object({
   "intervalHours": zod.number(),
   "nextRunAt": zod.string().nullish()
 }).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
   "history": zod.array(zod.object({
   "id": zod.number(),
   "status": zod.string(),
@@ -662,6 +682,11 @@ export const RunEspnBackfillResponse = zod.object({
   "intervalHours": zod.number(),
   "nextRunAt": zod.string().nullish()
 }).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
   "history": zod.array(zod.object({
   "id": zod.number(),
   "status": zod.string(),
@@ -708,6 +733,11 @@ export const RunWikipediaBackfillResponse = zod.object({
   "intervalHours": zod.number(),
   "nextRunAt": zod.string().nullish()
 }).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
   "history": zod.array(zod.object({
   "id": zod.number(),
   "status": zod.string(),
