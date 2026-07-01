@@ -20,4 +20,7 @@ Team sites run on a handful of CMS platforms with totally different SSR markup; 
 
 **Why:** the product mandate is precision-first; a mis-stamped headshot is worse than a missing one. The same school+name matching shape is shared by espn.ts/wikipedia.ts, but those lack the raw-name collision guard.
 
-**How to apply:** any new historical photo source should reuse the school-scoped + raw-name-collision-guard matching; only add per-platform parsers when a new CMS shows up. Coverage observed: a 2016+2017 run matched ~4,439 players, lifting 2016 33.7%→66.6% and 2017 54.3%→75.0%.
+**How to apply:** any new historical photo source should reuse the school-scoped + raw-name-collision-guard matching; only add per-platform parsers when a new CMS shows up.
+
+## TEAM_SITES keying (alias trap)
+The map is keyed on the EXACT DB `team` string. The DB uses multiple aliases for the same school (BYU/Brigham Young, SMU/Southern Methodist, Louisiana/Louisiana-Lafayette, San Jose State/San José State, NC State/North Carolina State, Connecticut/UConn, Hawaii/Hawai'i), and recent FBS promotions carry tm-* mascot-suffixed forms (e.g. "James Madison Dukes", "Jacksonville State Gamecocks", "Sam Houston State Bearkats", "Delaware Fightin Blue Hens"). Every alias needs its own map entry pointing at the same domain — an unmapped alias silently fetches nothing (no error). Only canonical FBS schools (~154-row `teams` table + promotions) are mapped; pure-FCS opponent names that leak in via TruMedia tm-* rows are deliberately left unmapped (mapping ~200 lower-division sites is scope creep + precision risk). A full 2016-2024 backfill lifted coverage every season (2018-2020 to ~83-86%, 2024 87%); the Vue CMS and a few sites (e.g. Kennesaw State) still yield little.
