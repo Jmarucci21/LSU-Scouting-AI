@@ -1,0 +1,2020 @@
+openapi: 3.0.0
+
+info:
+  version: 1.0.15
+  title: PFF Premium Feeds
+  description: API definition describing data feeds used to replace exisint feeds that we previously available in PSV1
+  contact:
+    name: PFF Service Team
+    email: service@profootballfocus.com
+
+servers:
+  - description: PFF Production
+    url: https://api.profootballfocus.com
+
+security:
+  - PffApiSecurity: []
+
+paths:
+  /v1/premium/{league}/games/{game_id}/all_blocking:
+    get:
+      summary: Get a custom feed containing all blocking data for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AllBlockingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/pass_protection:
+    get:
+      summary: Get a custom feed containing the pass protection data for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PassProtectionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/pass_rush:
+    get:
+      summary: Get a custom feed containing the pass rushing data for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PassRushResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/passing:
+    get:
+      summary: Get a custom feed containing passing data for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PassingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/penalty:
+    get:
+      summary: Get a custom feed containing the data pertaining to penalties for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PenaltyResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/pressure:
+    get:
+      summary: Get a custom feed containing the data pertaining to pressure for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PressureResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/quarterback_charting:
+    get:
+      summary: Get a custom feed containing the data pertaining to quarterback charting for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/QuarterbackChartingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/rushing:
+    get:
+      summary: Get a custom feed containing the data pertaining to rushing for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RushingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/team_analysis:
+    get:
+      summary: Get a custom feed containing the grades given to players in a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeamAnalysisResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/team_main:
+    get:
+      summary: Get a custom feed containing the data pertaining to every player on every play for a given game
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeamMainResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/games/{game_id}/team_play:
+    get:
+      summary: Get a custom feed containing the data pertaining to every play in a game.
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The PFF game ID
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeamPlayResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/all_blocking:
+    get:
+      summary: Get the all blocking feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AllBlockingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/pass_protection:
+    get:
+      summary: Get the pass protection feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PassProtectionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/pass_rush:
+    get:
+      summary: Get the pass rush feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PassRushResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/passing:
+    get:
+      summary: Get the passing feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PassingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/penalty:
+    get:
+      summary: Get the penalty feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PenaltyResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/pressure:
+    get:
+      summary: Get the pressure feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/PressureResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/quarterback_charting:
+    get:
+      summary: Get the quarterback charting feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/QuarterbackChartingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/rushing:
+    get:
+      summary: Get the rushing feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RushingResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/team_analysis:
+    get:
+      summary: Get the team analysis feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeamAnalysisResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/team_main:
+    get:
+      summary: Get the team main feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueNFLUFL'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeamMainResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/premium/{league}/{season}/team_play:
+    get:
+      summary: Get the team play feed for the supplied season
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The season e.g. 2018, 2017 etc
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/TeamPlay'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  responses:
+    UnauthorizedError:
+      description: Access token is missing or invalid
+
+  securitySchemes:
+    PffApiSecurity:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AllBlockingResponse:
+      type: object
+      properties:
+        all_blocking:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllBlocking'
+
+    PassProtectionResponse:
+      type: object
+      properties:
+        pass_protection:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassProtection'
+
+    PassRushResponse:
+      type: object
+      properties:
+        pass_rush:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassRush'
+
+    PassingResponse:
+      type: object
+      properties:
+        passing:
+          type: array
+          items:
+            $ref: '#/components/schemas/Passing'
+
+    PenaltyResponse:
+      type: object
+      properties:
+        penalty:
+          type: array
+          items:
+            $ref: '#/components/schemas/Penalty'
+
+    PressureResponse:
+      type: object
+      properties:
+        pressure:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pressure'
+
+    QuarterbackChartingResponse:
+      type: object
+      properties:
+        quarterback_charting:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuarterbackCharting'
+
+    RushingResponse:
+      type: object
+      properties:
+        rushing:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rushing'
+
+    TeamAnalysisResponse:
+      type: object
+      properties:
+        team_analysis:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamAnalysis'
+
+    TeamMainResponse:
+      type: object
+      properties:
+        team_main:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMain'
+
+    TeamPlayResponse:
+      type: object
+      properties:
+        team_play:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamPlay'
+
+    AllBlocking:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique ID for this item
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        play_id:
+          type: integer
+          description: PFF Play Id
+        game_id:
+          type: integer
+          description: PFF Game Id
+        season:
+          type: integer
+        week:
+          type: integer
+        seq:
+          type: integer
+        game_key:
+          type: integer
+          deprecated: true
+        play_gsis_id:
+          type: integer
+          deprecated: true
+        quarter:
+          type: integer
+        down:
+          type: integer
+        distance:
+          type: integer
+        game_clock:
+          type: string
+        fieldpos:
+          type: string
+        rps:
+          type: string
+        primary_run_concept:
+          type: string
+        player_id:
+          type: integer
+        player_participation_id:
+          type: integer
+        player_name:
+          type: string
+        team:
+          type: string
+        player_gsis_id:
+          type: integer
+        pos_group:
+          type: string
+        pos:
+          type: string
+        player_tech:
+          type: string
+        role:
+          type: string
+        player_grade:
+          type: integer
+        player_pen_grade:
+          type: integer
+        blocked_player_id:
+          type: integer
+        blocked_player_name:
+          type: string
+        blocked_player_team:
+          type: string
+        blocked_player_gsis_id:
+          type: integer
+        blocked_player_pos_group:
+          type: string
+        blocked_player_pos:
+          type: string
+        blocked_player_tech:
+          type: string
+        blocked_player_role:
+          type: string
+        blocked_player_grade:
+          type: integer
+        blocked_player_pen_grade:
+          type: integer
+        block_level:
+          type: string
+        block_type:
+          type: string
+        block_location:
+          type: string
+        block_direction:
+          type: string
+        spin:
+          type: integer
+        cut:
+          type: integer
+        missed_assignment:
+          type: integer
+        move1:
+          type: string
+        move2:
+          type: string
+        gap1:
+          type: string
+        gap2:
+          type: string
+        flow:
+          type: string
+        spy:
+          type: integer
+        unblocked:
+          type: integer
+        contain:
+          type: integer
+        looper:
+          type: integer
+        display_order:
+          type: integer
+        offense_on_the_ground:
+          type: integer
+        defense_on_the_ground:
+          type: integer
+
+    PassProtection:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_id:
+          type: integer
+          description: PFF Game Id
+        play_id:
+          type: integer
+          description: PFF Play Id
+        quarter:
+          type: integer
+        game_clock:
+          type: string
+        down:
+          type: integer
+        distance:
+          type: integer
+        third_down_group:
+          type: string
+        turn_of_center:
+          type: string
+        play_action:
+          type: integer
+        shotgun:
+          type: integer
+        blitz:
+          type: integer
+        dropback_type:
+          type: integer
+        dropback_depth:
+          type: integer
+        step_drop:
+          type: string
+        defensive_backs:
+          type: integer
+        no_play:
+          type: integer
+        offense:
+          type: string
+        player_id:
+          type: integer
+        name:
+          type: string
+        position:
+          type: string
+        side:
+          type: string
+        toc_to_away:
+          type: string
+        time_to_throw:
+          type: number
+        time_to_throw_group:
+          type: string
+        time_to_pressure:
+          type: number
+
+    PassRush:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_id:
+          type: integer
+          description: PFF Game Id
+        play_id:
+          type: integer
+          description: PFF Play Id
+        quarter:
+          type: integer
+        game_clock:
+          type: string
+        down:
+          type: integer
+        distance:
+          type: integer
+        third_down_group:
+          type: string
+        turn_of_center:
+          type: string
+        play_action:
+          type: integer
+        shotgun:
+          type: integer
+        blitz:
+          type: integer
+        dropback_type:
+          type: integer
+        dropback_depth:
+          type: integer
+        step_drop:
+          type: string
+        defensive_backs:
+          type: integer
+        no_play:
+          type: integer
+        defense:
+          type: string
+        player_id:
+          type: integer
+        name:
+          type: string
+        position:
+          type: string
+        stance:
+          type: integer
+        side:
+          type: string
+        toc_to_away:
+          type: string
+        time_to_throw:
+          type: number
+        time_to_throw_group:
+          type: string
+        time_to_pressure:
+          type: number
+        defensive_technique_id:
+          type: integer
+        shade:
+          type: string
+        tech:
+          type: string
+
+    Passing:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_id:
+          type: integer
+          description: PFF Game Id
+        season:
+          type: integer
+        is_preseason:
+          type: integer
+        week:
+          type: integer
+        away_team:
+          type: string
+        home_team:
+          type: string
+        play_id:
+          type: integer
+          description: PFF Play Id
+        quarter:
+          type: integer
+        down:
+          type: integer
+        distance:
+          type: integer
+        game_sequence:
+          type: string
+        game_clock:
+          type: string
+        fieldpos:
+          type: string
+        passer_player_id:
+          type: integer
+        passer_name:
+          type: string
+        offense:
+          type: string
+        defense:
+          type: string
+        pass_direction:
+          type: string
+        pass_depth:
+          type: integer
+        attempt:
+          type: integer
+        run:
+          type: integer
+        dropback:
+          type: integer
+        step_drop:
+          type: string
+        yards:
+          type: integer
+        yards_after_catch:
+          type: integer
+        completion:
+          type: integer
+        touchdown:
+          type: integer
+        interception:
+          type: integer
+        hit_as_threw:
+          type: integer
+        big_time_throw:
+          type: integer
+        turnover_worthy_play:
+          type: integer
+        pressure:
+          type: integer
+        sack:
+          type: integer
+        hit:
+          type: integer
+        hurry:
+          type: integer
+        hit_qb:
+          type: integer
+        hurry_qb:
+          type: integer
+        sack_qb:
+          type: integer
+        bat:
+          type: integer
+        spike:
+          type: integer
+        drop:
+          type: integer
+        thrown_away:
+          type: integer
+        extra_point:
+          type: integer
+        no_play:
+          type: integer
+        ing_pen:
+          type: integer
+        time_to_throw:
+          type: number
+        time_to_pressure:
+          type: number
+        passer_grade:
+          type: number
+        target_player_id:
+          type: integer
+        target_name:
+          type: string
+        target_season_position:
+          type: string
+        target_play_position:
+          type: string
+        target_grade:
+          type: number
+        coverage_player_id:
+          type: integer
+        coverage_name:
+          type: string
+        coverage_play_position:
+          type: string
+        coverage_grade:
+          type: number
+        press_coverage:
+          type: integer
+        off_package:
+          type: string
+        def_package:
+          type: string
+        pass_box:
+          type: integer
+        blitz:
+          type: integer
+        shotgun:
+          type: string
+        pistol:
+          type: string
+        play_action:
+          type: integer
+        pump_fake:
+          type: integer
+        screen:
+          type: integer
+        route:
+          type: string
+        dropback_depth:
+          type: integer
+        qb_dropback:
+          type: string
+        incompletion_type:
+          type: string
+        first_down_conv:
+          type: string
+        hash:
+          type: string
+        shift_motion:
+          type: string
+        mofo_coverage_played:
+          type: string
+        mofo_coverage_shown:
+          type: string
+        stunt:
+          type: integer
+        qb_moved:
+          type: integer
+        qb_reset:
+          type: integer
+        scramble_drill:
+          type: integer
+        coverage_scheme:
+          type: string
+        comment:
+          type: string
+        catchable:
+          type: integer
+        interceptor_player_id:
+          type: integer
+        interceptor_name:
+          type: string
+        contested:
+          type: integer
+        contested_players:
+          type: string
+
+    Penalty:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        play_id:
+          type: integer
+          description: PFF Play Id
+        game_id:
+          type: integer
+          description: PFF Game Id
+        seq:
+          type: integer
+        game_key:
+          type: integer
+          deprecated: true
+        play_gsis_id:
+          type: integer
+          deprecated: true
+        quarter:
+          type: integer
+        down:
+          type: integer
+        distance:
+          type: integer
+        game_clock:
+          type: string
+        fieldpos:
+          type: string
+        rps:
+          type: string
+        offense:
+          type: string
+        defense:
+          type: string
+        pen_on:
+          type: string
+        pos_group:
+          type: string
+        pos:
+          type: string
+        role:
+          type: string
+        player_id:
+          type: integer
+        name:
+          type: string
+        pen_type:
+          type: string
+        pen_detai:
+          type: string
+
+    Pressure:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_id:
+          type: integer
+          description: PFF Game Id
+        play_id:
+          type: integer
+          description: PFF Play Id
+        quarter:
+          type: integer
+        game_clock:
+          type: string
+        down:
+          type: integer
+        distance:
+          type: integer
+        third_down_group:
+          type: string
+        time_to_throw:
+          type: number
+        time_to_throw_group:
+          type: string
+        time_to_pressure:
+          type: number
+        turn_of_center:
+          type: string
+        play_action:
+          type: integer
+        shotgun:
+          type: integer
+        blitz:
+          type: integer
+        dropback_type:
+          type: integer
+        dropback_depth:
+          type: integer
+        step_drop:
+          type: string
+        defensive_backs:
+          type: integer
+        no_play:
+          type: integer
+        defense:
+          type: string
+        defensive_player:
+          type: string
+        defensive_player_id:
+          type: integer
+        defensive_grade_type:
+          type: string
+        defensive_position:
+          type: string
+        defensive_season_position:
+          type: string
+        stance:
+          type: integer
+        defensive_side:
+          type: string
+        defensive_toc_to_away:
+          type: string
+        shade:
+          type: string
+        tech:
+          type: string
+        defensive_grade:
+          type: number
+        offense:
+          type: string
+        offensive_player:
+          type: string
+        offensive_player_id:
+          type: integer
+        offensive_grade_type:
+          type: string
+        offensive_position:
+          type: string
+        offensive_season_position:
+          type: string
+        offensive_side:
+          type: string
+        offensive_toc_to_away:
+          type: string
+        offensive_grade:
+          type: number
+        comment:
+          type: string
+        order:
+          type: integer
+
+    QuarterbackCharting:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_key:
+          type: integer
+          deprecated: true
+        play_gsis:
+          type: integer
+          deprecated: true
+        game_id:
+          type: integer
+          description: PFF Game Id
+        play_id:
+          type: integer
+          description: PFF Play Id
+        season:
+          type: integer
+        week:
+          type: integer
+        quarter:
+          type: integer
+        game_clock:
+          type: string
+        down:
+          type: integer
+        distance:
+          type: integer
+        fieldpos:
+          type: string
+        passer_player_id:
+          type: integer
+        passer_name:
+          type: string
+        team:
+          type: string
+        throw_type:
+          type: string
+        coverage_type:
+          type: string
+        receiver_separation:
+          type: string
+        pass_accuracy:
+          type: string
+        qb_look:
+          type: string
+        qb_decision:
+          type: string
+        hit_while_throwing:
+          type: string
+        pocket_movement:
+          type: string
+        rhythm:
+          type: string
+        quick_game:
+          type: string
+
+    Rushing:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_id:
+          type: integer
+          description: PFF Game Id
+        season:
+          type: integer
+        is_preseason:
+          type: integer
+        week:
+          type: integer
+        away_team:
+          type: string
+        home_team:
+          type: string
+        play_id:
+          type: integer
+          description: PFF Play Id
+        quarter:
+          type: integer
+        down:
+          type: integer
+        distance:
+          type: integer
+        game_sequence:
+          type: integer
+        game_clock:
+          type: string
+        fieldpos:
+          type: string
+        runner_player_id:
+          type: integer
+        runner_name:
+          type: string
+        tackler_player_id:
+          type: integer
+        tackler_name:
+          type: string
+        tackler_position:
+          type: string
+        assist_player_id:
+          type: integer
+        assist_name:
+          type: string
+        assist_position:
+          type: string
+        first_contact_player_id:
+          type: integer
+        first_contact_name:
+          type: string
+        first_contact_position:
+          type: string
+        first_contact_blocked:
+          type: integer
+        offense:
+          type: string
+        defense:
+          type: string
+        attempt:
+          type: integer
+        run_position:
+          type: string
+        intended_run_position:
+          type: string
+        run_position_change_reason:
+          type: string
+        run_direction:
+          type: string
+        run_concept_1:
+          type: string
+        run_concept_2:
+          type: string
+        run_concept_3:
+          type: string
+        yards:
+          type: integer
+        yards_after_contact:
+          type: integer
+        touchdown:
+          type: integer
+        fumbles:
+          type: integer
+        forced_fumbles:
+          type: integer
+        tackles_avoided:
+          type: integer
+        extra_point:
+          type: integer
+        no_play:
+          type: integer
+        ing_pen:
+          type: integer
+        off_grade:
+          type: number
+        pen_grade:
+          type: number
+        run_grade:
+          type: number
+        off_package:
+          type: string
+        def_package:
+          type: string
+        blitz:
+          type: integer
+        shotgun:
+          type: string
+        pistol:
+          type: string
+        play_action:
+          type: integer
+        pump_fake:
+          type: integer
+        screen:
+          type: integer
+        first_down_conv:
+          type: string
+        hash:
+          type: string
+        shift_motion:
+          type: string
+        mofo_coverage_played:
+          type: string
+        mofo_coverage_shown:
+          type: string
+        comment:
+          type: string
+        runner_position:
+          type: string
+
+    TeamAnalysis:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        game_id:
+          type: integer
+          description: PFF Game Id
+        play_id:
+          type: integer
+          description: PFF Play Id
+        season:
+          type: integer
+        week:
+          type: integer
+        away_team:
+          type: string
+        home_team:
+          type: string
+        rps:
+          type: string
+        quarter:
+          type: integer
+        game_clock:
+          type: string
+        down:
+          type: integer
+        distance:
+          type: integer
+        offense:
+          type: string
+        defense:
+          type: string
+        away_player_id:
+          type: integer
+        away_player_name:
+          type: string
+        away_position:
+          type: string
+        away_rating:
+          type: number
+        away_type:
+          type: string
+        home_player_id:
+          type: integer
+        home_player_name:
+          type: string
+        home_position:
+          type: string
+        home_rating:
+          type: number
+        home_type:
+          type: string
+        comment:
+          type: string
+
+    TeamMain:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        play_id:
+          type: integer
+          description: PFF Play Id
+        game_id:
+          type: integer
+          description: PFF Game Id
+        gsis_game_key:
+          type: integer
+          deprecated: true
+        pff_play_id:
+          type: integer
+          deprecated: true
+        pff_game_id:
+          type: integer
+          deprecated: true
+        pp_id:
+          type: integer
+        player_id:
+          type: integer
+        gsis_player_id:
+          type: integer
+        player:
+          type: string
+        team:
+          type: string
+        position:
+          type: string
+        role:
+          type: string
+        versus_ppid:
+          type: integer
+        off_pass:
+          type: integer
+        off_pass_block:
+          type: integer
+        off_pass_route:
+          type: integer
+        off_run:
+          type: integer
+        off_run_block:
+          type: integer
+        off_qb:
+          type: integer
+        off_runner:
+          type: integer
+        off_receiver:
+          type: integer
+        off_fumbles:
+          type: integer
+        off_fumble_recovery:
+          type: integer
+        off_forced:
+          type: integer
+        off_tackles_avoided:
+          type: integer
+        off_sack_allowed:
+          type: integer
+        off_hit_allowed:
+          type: integer
+        off_hurry_allowed:
+          type: integer
+        off_pressure_allowed:
+          type: integer
+        off_rating:
+          type: integer
+        off_comment:
+          type: string
+        def_run_defense:
+          type: integer
+        def_pass_rush:
+          type: integer
+        def_coverage:
+          type: integer
+        def_cover:
+          type: integer
+        def_sack:
+          type: integer
+        def_hit:
+          type: integer
+        def_hurry:
+          type: integer
+        def_pressure:
+          type: integer
+        def_tackle:
+          type: integer
+        def_stop:
+          type: integer
+        def_assist:
+          type: integer
+        def_missed_tackle:
+          type: integer
+        def_forced_fumble:
+          type: integer
+        def_fumble_recovery:
+          type: integer
+        def_rating:
+          type: integer
+        def_comment:
+          type: string
+        pass_direction:
+          type: string
+        pass_depth:
+          type: integer
+        pass_attempt:
+          type: integer
+        qb_run:
+          type: integer
+        pass_dropback:
+          type: integer
+        pass_yards:
+          type: integer
+        pass_yards_after_catch:
+          type: integer
+        pass_completion:
+          type: integer
+        pass_touchdown:
+          type: integer
+        pass_interception:
+          type: integer
+        pass_hit_as_threw:
+          type: integer
+        pass_pressured:
+          type: integer
+        pass_sacked:
+          type: integer
+        pass_hurry:
+          type: integer
+        pass_hit_qb:
+          type: integer
+        pass_hurry_qb:
+          type: integer
+        pass_sack_qb:
+          type: integer
+        pass_bat:
+          type: integer
+        pass_spike:
+          type: integer
+        pass_drop:
+          type: integer
+        pass_thrown_away:
+          type: integer
+        pass_lateral:
+          type: integer
+        rec_direction:
+          type: string
+        rec_depth:
+          type: integer
+        rec_target:
+          type: integer
+        rec_reception:
+          type: integer
+        rec_yards:
+          type: integer
+        rec_yards_after_catch:
+          type: integer
+        rec_touchdown:
+          type: integer
+        rec_interception:
+          type: integer
+        rec_drop:
+          type: integer
+        rush_attempt:
+          type: integer
+        rush_direction:
+          type: string
+        rush_yards:
+          type: integer
+        rush_yards_after_contact:
+          type: integer
+        rush_touchdown:
+          type: integer
+        rush_fumble:
+          type: integer
+        rush_forced_fumble:
+          type: integer
+        rush_tackles_avoided:
+          type: integer
+        press:
+          type: integer
+        stance:
+          type: integer
+        bunched:
+          type: integer
+        injured:
+          type: integer
+        first_contact:
+          type: string
+        first_contact_blocked:
+          type: integer
+        on_los:
+          type: integer
+        ko_doubled:
+          type: integer
+        creeper:
+          type: integer
+        def_depth:
+          type: integer
+        def_technique:
+          type: string
+        rb_depth:
+          type: integer
+        motion:
+          type: string
+        splits:
+          type: integer
+        rec_route:
+          type: string
+        rec_route_name:
+          type: string
+        rec_route_depth:
+          type: integer
+
+    TeamPlay:
+      type: object
+      properties:
+        gsis_play_id:
+          type: integer
+          description: NFL GSIS Play Id
+        gsis_game_id:
+          type: integer
+          description: NFL GSIS Game Key
+        nfl_gsis_game_id:
+          type: integer
+          deprecated: true
+        playcnt:
+          type: integer
+          deprecated: true
+        play_id:
+          type: integer
+          description: PFF Play Id
+        game_id:
+          type: integer
+          description: PFF Game Id
+        field_position:
+          type: string
+        quarter:
+          type: integer
+        down:
+          type: integer
+        distance:
+          type: integer
+        game_clock:
+          type: string
+        offense:
+          type: string
+        defense:
+          type: string
+        redzone:
+          type: string
+        shotgun:
+          type: integer
+        screen:
+          type: integer
+        time_to_throw:
+          type: number
+        time_to_pressure:
+          type: number
+        offense_package:
+          type: string
+        offense_players:
+          type: string
+        defense_package:
+          type: string
+        defense_players:
+          type: string
+        trick:
+          type: integer
+        draw:
+          type: integer
+        option:
+          type: integer
+        no_huddle:
+          type: integer
+        play_action:
+          type: integer
+        route:
+          type: string
+        dropback:
+          type: string
+        run_concept_1:
+          type: string
+        run_concept_2:
+          type: string
+        incompletion_reason:
+          type: string
+        dropback_depth:
+          type: integer
+        trick_look:
+          type: integer
+        pistol:
+          type: integer
+        pump_fake:
+          type: integer
+        return_direction:
+          type: string
+        ball_snapped_from:
+          type: string
+        mofo_coverage_played_shown:
+          type: string
+        poa_actual:
+          type: string
+        poa_change_reason:
+          type: string
+        pass_zone:
+          type: string
+        st_play_type:
+          type: string
+        motion:
+          type: integer
+        shift:
+          type: integer
+        turn_of_center:
+          type: string
+        pre_kick_motion:
+          type: integer
+        run_concept_3:
+          type: string
+        timeout:
+          type: integer
+
+    League:
+      type: string
+      description: The league abbreviation in lower-case, e.g. "nfl"
+      enum:
+        - nfl
+        - ncaa
+        - hs
+        - aaf
+        - ufl
+
+    LeagueNFLUFL:
+      type: string
+      description: The league abbreviation in lower-case, e.g. "nfl"
+      enum:
+        - nfl
+        - ufl

@@ -1,0 +1,3370 @@
+openapi: 3.0.0
+info:
+  version: '1.12'
+  title: PFF Master Data
+  description: API for accessing various data about franchises, leagues, teams, players, etc.
+  contact:
+    name: PFF Service
+    email: service@profootballfocus.com
+    url: "http://www.profootballfocus.com"
+  license:
+    name: "Copyright 2019 Pro Football Focus - All rights reserved"
+    url: "https://www.profootballfocus.com"
+
+externalDocs:
+  description: PFF API User Guide
+  url: https://api.profootballfocus.com/doc/index.html
+
+servers:
+  - description: PFF Production
+    url: 'https://api.profootballfocus.com'
+
+security:
+  - PffApiSecurity: []
+
+paths:
+  /v1/{league}/franchises:
+    get:
+      summary: Get franchise information
+      description: >-
+        Returns a list of franchises
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueParameter'
+      responses:
+        '200':
+          description: A JSON array of `franchise` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/Franchises'
+              example:
+                franchises:
+                  id: 25
+                  name: 'Pittsburgh Steelers'
+                  league_id: 1
+                  league: 'NFL'
+                  sportradar_id: '8eefc537-0493-4de8-8d64-2c091d3f5887'
+                leagues:
+                  id: 1
+                  name: 'Pro Football'
+                  abbreviation: 'NFL'
+                  display_order: 10
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/franchises/{franchise_id}/team_members:
+    get:
+      summary: Team members for a team
+      description: >-
+        Returns a list of team members. Team members include all of the players on the team whether they are on the active roster or not.
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueParameter'
+        - name: franchise_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The franchise ID of the team for which to return the team members
+        - name: effective_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            The date that you want the team members as of (YYYY-MM-DD)
+      responses:
+        '200':
+          description: A `TeamMembers` object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMembers'
+              example:
+                teams:
+                  id: 7
+                  updated_at: '2016-06-01T19:00:12.000000'
+                  city: 'Cincinnati'
+                  abbreviation: 'CIN'
+                  franchise_id: 7
+                  league_id: 1
+                  league: 'NFL'
+                  sportradar_id: '6680d28d-d4d2-49f6-aace-5292d3ec02c2'
+                  nickname: 'Bengals'
+                  gsis_abbreviation: 'DOLPHI'
+                  end_season: 3000
+                  start_season: 1990
+                  mid_abbreviation: null
+                  pff_twitter_handle: null
+                  primary_color: '#FB441F'
+                  secondary_color: '#000000'
+                  tertiary_color: '#ffffff'
+                  tv_abbreviation: 'MIA'
+                  twitter_handle: null
+                  slug: cincinnati-bengals
+                  display_abbreviation: "MIA"
+                  color_metadata:
+                    background_color_ref: '#FB441F'
+                    dark_color_ref: '#FB441F'
+                    foreground_color: null
+                    helmet_color_ref: '#000000'
+                    jersey_color_ref: '#FB441F'
+                    light_color_ref: '#000000'
+                    primary_color: '#FB441F'
+                    secondary_color: '#000000'
+                    tertiary_color: "#ffffff"
+                rosters:
+                  id: 28766
+                  position: 'DLT'
+                  status: 'A'
+                  speed: null
+                  weight: 264
+                  franchise_id: 7
+                  gsis_id: '46499'
+                  sportradar_id: '0ff9a975-669d-4851-a95d-ab28d9fc29c4'
+                  jersey_number: '24'
+                  college:
+                    id: 108
+                    name: 'Alabama Crimson Tide'
+                    abbreviation: 'BAMACT'
+                    gsis_abbreviation: 'ALUN'
+                    mid_abbreviation: 'ALABAMA'
+                    tv_abbreviation: 'BAMA'
+                    display_abbreviation: 'BAMA'
+                  first_name: 'Eddy'
+                  last_name: 'Wilson'
+                  dob: '2001-08-22'
+                  hometown:
+                    id: 154
+                    name: 'Pontiac'
+                    state: 'MI'
+                    country: 'US'
+                  phonetic_first_name: null
+                  phonetic_last_name: null
+                  statuses:
+                    active: true
+                    comment: null
+                    league_id: 1
+                    league: 'NFL'
+                    player_id: 84088
+                    player_status_type: 'A'
+                  college_gsis_id: '177049'
+                  current_eligible_year: 2018
+                  height: 603
+                  season_position: 'DI'
+                  gsis_alt_id: '00-0034246'
+                  nfl_id: null
+                  group_position: 'DI'
+                  slug: 'simeyon-robinson'
+                  season_secondary_position: null
+                  alt_id: null
+                  draft:
+                    type: 'AD'
+                    round: 2
+                    franchise_id: 29
+                    league: 'NFL'   
+                    season: 2023
+                    selection: 23
+                  drafts:
+                    type: 'AD'
+                    round: 1
+                    franchise_id: 31
+                    league: 'NFL'   
+                    season: 2022
+                    selection: 7
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/{season}/games:
+    get:
+      summary: Get game information
+      description: >-
+        Returns a list of games
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueParameter'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: >-
+            Season for which to return teams, e.g. "2017"
+      responses:
+        '200':
+          description: A JSON array of `team` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/Games'
+              example:
+                teams:
+                  id: 7
+                  updated_at: '2016-06-01T19:00:12.000000'
+                  city: 'Cincinnati'
+                  abbreviation: 'CIN'
+                  franchise_id: 7
+                  sportradar_id: '6680d28d-d4d2-49f6-aace-5292d3ec02c2'
+                  end_season: 3000
+                  start_season: 1990
+                  nickname: 'Bengals'
+                  gsis_abbreviation: 'DOLPHI'
+                  mid_abbreviation: null
+                  pff_twitter_handle: null
+                  primary_color: '#FB441F'
+                  secondary_color: '#000000'
+                  tertiary_color: '#ffffff'
+                  tv_abbreviation: 'MIA'
+                  twitter_handle: null
+                  slug: 'cincinnati-bengals'
+                  display_abbreviation: 'MIA'
+                  color_metadata:
+                    background_color_ref: '#FB441F'
+                    dark_color_ref: '#FB441F'
+                    foreground_color: null
+                    helmet_color_ref: '#000000'
+                    jersey_color_ref: '#FB441F'
+                    light_color_ref: '#000000'
+                    primary_color: '#FB441F'
+                    secondary_color: '#000000'
+                    tertiary_color: '#ffffff'
+                leagues:
+                  id: 1
+                  name: 'Pro Football'
+                  abbreviation: 'NFL'
+                  display_order: 10
+                games:
+                  id: 24068
+                  name: null
+                  start: '2023-08-04T00:00:00Z'
+                  week: 3
+                  league_id: 1
+                  gsis_id: '59447'
+                  away_franchise_id: 20
+                  home_franchise_id: 25
+                  kickoff_time: null
+                  league: 'NFL'
+                  season: 2023
+                  sportradar_id: 'e626d27c-8b81-4520-9728-5a599a753110'
+                  stadium_id: 65
+                  xfl_id: null
+                  neutral_stadium: true
+                stadiums:
+                  id: 42
+                  name: 'Gillette Stadium'
+                  address: '1835 Harrison Ave NW'
+                  latitude: 27.9758
+                  longitude: -82.5033
+                  capacity: 64767
+                  elevation: null
+                  grass_type: "Real"
+                  nickname: 'The Jungle'
+                  seating_type: 'S'
+                  stadium_type: 'OUT'    
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/leagues:
+    get:
+      summary: Get league information
+      description: >-
+        Returns a list of leagues
+      responses:
+        '200':
+          description: A JSON array of `league` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/Leagues'
+              example:
+                leagues:
+                  id: 1
+                  name: 'Pro Football'
+                  abbreviation: 'NFL'
+                  display_order: 10
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/players:
+    get:
+      summary: Get player information
+      description: >-
+        Returns a paginated list of players
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueParameter'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: "The page number to return"
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: "The size of the page, i.e. the number of players to return per page"
+      responses:
+        '200':
+          description: A JSON array of `player` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/PaginatedPlayers'
+              example:
+                page_size: 50
+                page_number: 1
+                total_entries: 10080
+                total_pages: 202
+                players:
+                  id: 2
+                  speed: 4.8
+                  weight: 180
+                  gsis_id: '7264'
+                  sportradar_id: null
+                  college:
+                     id: 121
+                     abbreviation: 'BCEAGL'
+                     gsis_abbreviation: 'MBAC'
+                     name: 'Buston College Eagles'
+                  first_name: 'Ray'
+                  last_name: 'Brown'
+                  dob: '1995-02-20'
+                  phonetic_first_name: null
+                  phonetic_last_name: null
+                  height: 510
+                  current_eligible_year: 2026
+                  college_gsis_id: null
+                  gsis_alt_id: '00-0016683'
+                  statuses: []
+                  retired_season: 2015
+                  slug: 'bryan-barker'
+                  alt_id: null
+                  draft:
+                    type: 'AD'
+                    round: 3
+                    franchise_id: 26
+                    league: 'NFL'
+                    season: 2022
+                    selection: 90
+                  drafts:
+                    type: 'AD'
+                    round: 3
+                    franchise_id: 26
+                    league: 'NFL'
+                    season: 2022
+                    selection: 90
+                  retired: true
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/players/latest:
+    get:
+      summary: Get player information with latest team information
+      description: >-
+        Returns a list of players with the latest Jersey, Position, and Team information
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueParameter'
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: "Search by player name"
+        - name: id
+          in: query
+          schema:
+            type: integer
+          description: "Find players with the given ID"
+        - name: sort
+          in: query
+          schema:
+            type: string
+          description: "Column to sort on property to sort by (last_name, first_name, id, gsis_id, dob)"
+        - name: dir
+          in: query
+          schema:
+            type: string
+          description: "Sort direction (asc, desc)"
+        - name: updated_since
+          in: query
+          schema:
+            type: integer
+          description: "Timestamp in UNIX Epoch time format indicating that only players that have been updated since this time should be returned in the response"
+      responses:
+        '200':
+          description: A `PlayerInfo` object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerInfo'
+              example:
+                rosters:
+                  id: 20
+                  position: 'QB'
+                  speed: 4.83
+                  updated_at: '2017-06-20T16:29:18.164320'
+                  weight: 209
+                  franchise_id: 20
+                  gsis_id: '26250'
+                  jersey_number: '09'
+                  sportradar_id: null
+                  college:
+                    id: 147
+                    name: 'Boston College Eagles'
+                    abbreviation: 'BCEAGL'
+                    gsis_abbreviation: 'MABC'
+                    mid_abbreviation: "BOSTON COL"
+                    tv_abbreviation: 'BC'
+                    display_abbreviation: 'BCEAGL'
+                  first_name: 'Drew'
+                  last_name: 'Brees'
+                  dob: '1979-01-15'
+                  phonetic_first_name: null
+                  phonetic_last_name: null
+                  height: 600
+                  current_eligible_year: 2001
+                  college_gsis_id: null
+                  gsis_alt_id: '00-0033897'
+                  my_fantasy_league_id: null
+                  stats_global_id: null
+                  stats_id: null
+                  statuses: []
+                  retired_season: 2020
+                  secondary_position: null
+                  slug: 'doug-flutie'
+                  alt_id: null
+                  draft:
+                    round: 3
+                    franchise_id: 26
+                    league: 'NFL'
+                    season: 2022
+                    selection: 90
+                  drafts:
+                    round: 3
+                    franchise_id: 26
+                    league: 'NFL'
+                    season: 2022
+                    selection: 90
+                  retired: true
+                  
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/{season}/teams:
+    get:
+      summary: Get team information
+      description: >-
+        Returns a list of teams
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/LeagueParameter'
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: >-
+            Season for which to return teams, e.g. "2017"
+      responses:
+        '200':
+          description: A JSON array of `team` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/Teams'
+              example:
+                teams:
+                  id: 1472
+                  updated_at: '2022-02-02T14:16:28.421114'
+                  city: 'Washington'
+                  groups:
+                    [
+                      {
+                      id: 1,
+                      name: 'AFC',
+                      type: 'CONF',
+                      league_id: 1,
+                      league: 'NFL',
+                      end_season: 3000,
+                      start_season: 1960,
+                      display_order: 10,
+                      parent_id: null,
+                      slug: 'afc',
+                      heirarchy: [
+                        6
+                        ],
+                      hierarchy: [
+                        6
+                        ]
+                      },
+                      {
+                        id: 5,
+                        name: 'AFC West',
+                        type: 'DIV',
+                        league_id: 1,
+                        league: 'NFL',
+                        end_season: 3000,
+                        start_season: 2020,
+                        display_order: 50,
+                        parent_id: 1,
+                        slug: 'afc-west',
+                        heirarchy: [
+                          6,
+                          7
+                          ],
+                        hierarchy: [
+                          6,
+                          7
+                        ]
+                      }
+                    ]
+                  abbreviation: 'LAC'
+                  franchise_id: 25
+                  league_id: 1
+                  league: 'NFL'
+                  sportradar_id: '22052ff7-c065-42ee-bc8f-c4691c50e624'
+                  nickname: 'Chargers'
+                  gsis_abbreviation: 'COMMAN'
+                  start_season: 2017
+                  end_season: 3000
+                  mid_abbreviation: null
+                  pff_twitter_handle: null
+                  primary_color: '#FB441F'
+                  secondary_color: '#000000'
+                  tertiary_color: '#ffffff'
+                  tv_abbreviation: 'MIA'
+                  twitter_handle: null
+                  slug: 'cincinnati-bengals'
+                  display_abbreviation: 'MIA'
+                  color_metadata:
+                    background_color_ref: '#FB441F'
+                    dark_color_ref: '#FB441F'
+                    foreground_color: null
+                    helmet_color_ref: '#000000'
+                    jersey_color_ref: '#FB441F'
+                    light_color_ref: '#000000'
+                    primary_color: '#FB441F'
+                    secondary_color: '#000000'
+                    tertiary_color: '#ffffff'     
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/player_combine_results:
+    get:
+      summary: Get player combine results information
+      description: >-
+        Returns a list of player combine results
+      parameters:
+        - name: player_id
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: integer
+          description: >-
+            A comma-separated list of player IDs for players to include in the response.
+            If not given, all players will be included in the response.
+
+      responses:
+        '200':
+          description: A JSON array of `PlayerCombineResult` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/PlayerCombineResults'
+              example:
+                player_combine_results:
+                  position: 'TE'
+                  year: 2020
+                  player_id: 40294
+                  arm_length_in_inches: 33.25
+                  bench_press_in_reps: 16
+                  broad_jump_in_inches: 115
+                  fourty_time_in_seconds: 4.73
+                  height_in_inches: 75.0
+                  left_hand_size_in_inches: 9.75
+                  projected_position: "TE"
+                  right_hand_size_in_inches: 9.75
+                  ten_time_in_seconds: null
+                  three_cone_in_seconds: null
+                  twenty_shuttle_in_seconds: null
+                  twenty_time_in_seconds: null
+                  vertical_jump_in_inches: 30.5
+                  weight_in_pounds: 257
+                  wingspan_in_inches: 80.125
+                  
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/player_pro_day:
+    get:
+      summary: Get player pro day information
+      description: >-
+        Returns a list of player pro day results
+      parameters:
+        - name: player_id
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: integer
+          description: >-
+            A comma-separated list of player IDs for players to include in the response.
+            If not given, all players will be included in the response.
+      responses:
+        '200':
+          description: A JSON array of `PlayerProDayResult` objects
+          content:
+            application/json:
+              schema:
+                type: object
+                items:
+                  $ref: '#/components/schemas/PlayerProDayResults'
+              example:
+                player_pro_day:
+                  position: 'TE'
+                  year: 2020
+                  player_id: 40294
+                  arm_length_in_inches: 33.25
+                  bench_press_in_reps: 16
+                  broad_jump_in_inches: 115
+                  fourty_time_in_seconds: 4.73
+                  height_in_inches: 75.0
+                  left_hand_size_in_inches: 9.75
+                  projected_position: "TE"
+                  right_hand_size_in_inches: 9.75
+                  ten_time_in_seconds: null
+                  three_cone_in_seconds: null
+                  twenty_shuttle_in_seconds: null
+                  twenty_time_in_seconds: null
+                  vertical_jump_in_inches: 30.5
+                  weight_in_pounds: 257
+                  wingspan_in_inches: 80.125
+                  event_date: '2019-03-20'
+                  venue_franchise_id:
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/franchises/{franchise_id}/package_depth_charts:
+    get:
+      summary: Team package depth chart
+      description: >-
+        Returns a depth chart for different packages for a team
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+            - nfl
+            - ncaa
+            - hs
+          description: The league abbreviation in lower-case, e.g. "nfl"
+        - name: franchise_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The franchise ID of the team for which to return the depth charts
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: >-
+            whether to only include active players based on status (defaults to false)
+      responses:
+        '200':
+          description: A `DepthCharts` object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageDepthCharts'
+              example:
+                teams:
+                  id: 7
+                  updated_at: '2016-06-01T19:00:12.000000'
+                  city: 'Cincinnati'
+                  abbreviation: 'CIN'
+                  franchise_id: 7
+                  sportradar_id: '6680d28d-d4d2-49f6-aace-5292d3ec02c2'
+                  nickname: 'Bengals'
+                  gsis_abbreviation: 'DOLPHI'
+                  end_season: 3000
+                  start_season: 1990                  
+                  mid_abbreviation: null
+                  pff_twitter_handle: null
+                  primary_color: '#FB441F'
+                  secondary_color: '#000000'
+                  tertiary_color: '#ffffff'
+                  tv_abbreviation: 'MIA'
+                  twitter_handle: null
+                  slug: 'cincinnati-bengals'
+                  display_abbreviation: 'MIA'
+                  color_metadata:
+                    background_color_ref: '#FB441F'
+                    dark_color_ref: '#FB441F'
+                    foreground_color: null
+                    helmet_color_ref: '#000000'
+                    jersey_color_ref: '#FB441F'
+                    light_color_ref: '#000000'
+                    primary_color: '#FB441F'
+                    secondary_color: '#000000'
+                    tertiary_color: '#ffffff'
+                depth_charts: [
+                  {
+                  positions: [
+                  "LWR",
+                  "RWR",
+                  "SWR",
+                  "TE",
+                  "LT",
+                  "LG",
+                  "C",
+                  "RG",
+                  "RT",
+                  "QB",
+                  "HB"
+                  ],
+                  depth_chart:
+                    {
+                    C:
+                      [
+                        {
+                          id: 81775,
+                          position: 'C',
+                          status: 'A',
+                          speed: 5.33,
+                          depth: 1,
+                          weight: 310,
+                          franchise_id: 13,
+                          gsis_id: '56066',
+                          jersey_number: '54',
+                          sportradar_id: '88248197-6d57-4255-b1e0-5de23c62f942',
+                          college:
+                            {
+                            id: 258,
+                            name: 'Notre Dame Fighting Irish',
+                            abbreviation: 'NOTRED',
+                            gsis_abbreviation: 'INND',
+                            mid_abbreviation: 'NOTRE DAME',
+                            tv_abbreviation: 'ND',
+                            display_abbreviation: 'ND'
+                            },
+                        first_name: 'Jarrett',
+                        last_name: 'Patterson',
+                        dob: '1999-09-01',
+                        hometown:
+                          {
+                          id: 4239,
+                          name: 'Laguna Hills',
+                          state: 'CA',
+                          country: 'US',
+                          },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 81775,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 81775,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '313343',
+                          height: 605,
+                          current_eligible_year: 2023,
+                          gsis_alt_id: '00-0038615',
+                          group_position: 'C',
+                          slug: 'jarrett-patterson',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 26,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 90,
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 26,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 90,
+                            }
+                          ]
+                        }
+                      ],
+                    HB:
+                      [
+                        {
+                          id: 11803,
+                          position: 'HB',
+                          status: 'A',
+                          speed: 5.33,
+                          depth: 1,
+                          weight: 220,
+                          franchise_id: 13,
+                          gsis_id: '44860',
+                          jersey_number: '28',
+                          sportradar_id: '7797f36e-87e8-4282-b6d2-bdb1774fc3b3',
+                          college:
+                            {
+                            id: 261,
+                            name: 'Oklahoma Sooners',
+                            abbreviation: 'OKLAHO',
+                            gsis_abbreviation: 'OKUN',
+                            mid_abbreviation: 'OKLAHOMA',
+                            tv_abbreviation: 'OKLA',
+                            display_abbreviation: 'OKLA'
+                            },
+                          first_name: 'Joe',
+                          last_name: 'Mixon',
+                          dob: '1996-07-24',
+                          hometown:
+                            {
+                            id: 4239,
+                            name: 'Laguna Hills',
+                            state: 'CA',
+                            country: 'US',
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 81775,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 81775,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '314542',
+                          height: 511,
+                          current_eligible_year: 2024,
+                          gsis_alt_id: '00-0039603',
+                          group_position: 'HB',
+                          slug: 'british-brooks',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 26,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 90
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 26,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 90
+                            }
+                          ]
+                        }
+                      ],
+                    LG:
+                      [
+                        {
+                          id: 99052,
+                          position: 'LG',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 323,
+                          franchise_id: 13,
+                          gsis_id: '54480',
+                          jersey_number: '76',
+                          sportradar_id: '88ed591a-e082-4539-8fb5-7932a0dc9f9e',
+                          college:
+                            {
+                            id: 312,
+                            name: 'Texas A&M Aggies',
+                            abbreviation: 'TEXASM',
+                            gsis_abbreviation: 'TXAM',
+                            mid_abbreviation: 'TEXAS A&M',
+                            tv_abbreviation: 'TXAM',
+                            display_abbreviation: 'TXAM'
+                            },
+                          first_name: 'Kenyon',
+                          last_name: 'Green',
+                          dob: '2001-03-15',
+                          hometown:
+                            {
+                            id: 46,
+                            name: 'Humble',
+                            state: 'TX',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 99052,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 81775,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '324910',
+                          height: 604,
+                          current_eligible_year: 2022,
+                          gsis_alt_id: '00-0037613',
+                          group_position: 'G',
+                          slug: 'kenyon-green',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 15
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 15
+                            }
+                          ]
+                        }
+                      ],
+                    LT:
+                      [
+                        {
+                          id: 10647,
+                          position: 'LT',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 313,
+                          franchise_id: 13,
+                          gsis_id: '43302',
+                          jersey_number: '78',
+                          sportradar_id: '813c2073-8f69-4f6f-94a6-6819cd14b4f3',
+                          college:
+                            {
+                            id: 226,
+                            name: 'Mississippi Rebels',
+                            abbreviation: 'OLEMIS',
+                            gsis_abbreviation: 'MSUN',
+                            mid_abbreviation: 'OLE MISS',
+                            tv_abbreviation: 'MISS',
+                            display_abbreviation: 'MISS'
+                            },
+                          first_name: 'Laremy',
+                          last_name: 'Tunsil',
+                          dob: '1994-08-02',
+                          hometown:
+                            {
+                            id: 46,
+                            name: 'Humble',
+                            state: 'TX',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 10647,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 10647,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '119103',
+                          height: 605,
+                          current_eligible_year: 2016,
+                          gsis_alt_id: '00-0032380',
+                          group_position: 'T',
+                          slug: 'laremy-tunsil',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 17,
+                            league: 'NFL',
+                            season: 2016,
+                            selection: 13
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 17,
+                            league: 'NFL',
+                            season: 2016,
+                            selection: 13
+                            }
+                          ]
+                        }
+                      ],
+                    LWR:
+                      [
+                        {
+                          id: 61441,
+                          position: 'LWR',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 215,
+                          franchise_id: 13,
+                          gsis_id: '53518',
+                          jersey_number: '12',
+                          sportradar_id: 'bd56a50c-5fae-4ee2-8363-f74ae07b6887',
+                          college:
+                            {
+                            id: 222,
+                            name: 'Michigan Wolverines',
+                            abbreviation: 'MICHIG',
+                            gsis_abbreviation: 'MIUN',
+                            mid_abbreviation: 'MICHIGAN',
+                            tv_abbreviation: 'MICH',
+                            display_abbreviation: 'MICH'
+                            },
+                          first_name: 'Nico',
+                          last_name: 'Collins',
+                          dob: '1999-03-19',
+                          hometown:
+                            {
+                            id: 217,
+                            name: 'Birmingham',
+                            state: 'AL',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 10647,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 10647,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '290584',
+                          height: 604,
+                          current_eligible_year: 2021,
+                          gsis_alt_id: '00-0036554',
+                          group_position: 'WR',
+                          slug: 'nico-collins',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2021,
+                            selection: 90
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2021,
+                            selection: 90
+                            }
+                          ]
+                        }
+                      ],
+                    QB:
+                      [
+                        {
+                          id: 129759,
+                          position: 'QB',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 218,
+                          franchise_id: 13,
+                          gsis_id: '55866',
+                          jersey_number: '7',
+                          sportradar_id: '7e91086f-9ca4-4bd9-a099-b88b2f37e6c6',
+                          college:
+                          {
+                            id: 260,
+                            name: 'Ohio State Buckeyes',
+                            abbreviation: 'OHIOST',
+                            gsis_abbreviation: 'OHST',
+                            mid_abbreviation: 'OHIO STATE',
+                            tv_abbreviation: 'OSU',
+                            display_abbreviation: 'OSU',
+                          },
+                          first_name: 'C.J.',
+                          last_name: 'Stroud',
+                          dob: '2001-10-03',
+                          hometown:
+                            {
+                            id: 10549,
+                            name: 'Inland Empire',
+                            state: 'CA',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 10647,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 10647,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '351465',
+                          height: 603,
+                          current_eligible_year: 2023,
+                          gsis_alt_id: '00-0039163',
+                          group_position: 'QB',
+                          slug: 'cj-stroud',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 2
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 2
+                            }
+                          ]
+                        }
+                      ],
+                    RG:
+                      [
+                        {
+                          id: 9564,
+                          position: 'RG',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 310,
+                          franchise_id: 13,
+                          gsis_id: '42474',
+                          jersey_number: '69',
+                          sportradar_id: 'a8ac7c7d-301a-4e1e-afd4-04f88cad848e',
+                          college:
+                          {
+                            id: 176,
+                            name: 'Georgia Tech Yellow Jackets',
+                            abbreviation: 'GEOTEC',
+                            gsis_abbreviation: 'GATC',
+                            mid_abbreviation: 'GA TECH',
+                            tv_abbreviation: 'GT',
+                            display_abbreviation: 'GT',
+                          },
+                          first_name: 'Shaq',
+                          last_name: 'Mason',
+                          dob: '1993-08-28',
+                          hometown:
+                            {
+                            id: 10549,
+                            name: 'Inland Empire',
+                            state: 'CA',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 9564,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 9564,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '66493',
+                          height: 601,
+                          current_eligible_year: 2015,
+                          gsis_alt_id: '00-0031580',
+                          group_position: 'G',
+                          slug: 'shaq-mason',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 4,
+                            franchise_id: 19,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 131
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 4,
+                            franchise_id: 19,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 131
+                            }
+                          ]
+                        }
+                      ],
+                    RT:
+                      [
+                        {
+                          id: 25472,
+                          position: 'RT',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 322,
+                          franchise_id: 13,
+                          gsis_id: '47806',
+                          jersey_number: '71',
+                          sportradar_id: '8abf63a5-6f5d-46c2-8a3a-b9b03d0cab26',
+                          college:
+                          {
+                            id: 105,
+                            name: 'Alabama State Hornets',
+                            abbreviation: 'ALABST',
+                            gsis_abbreviation: 'ALST',
+                            mid_abbreviation: 'ALABAMA ST',
+                            tv_abbreviation: 'ALST',
+                            display_abbreviation: 'ALST',
+                          },
+                          first_name: 'Tytus',
+                          last_name: 'Howard',
+                          dob: '1996-05-23',
+                          hometown:
+                            {
+                            id: 3954,
+                            name: 'Monroeville',
+                            state: 'AL',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 25472,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 25472,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '167398',
+                          height: 605,
+                          current_eligible_year: 2019,
+                          gsis_alt_id: '00-0035234',
+                          group_position: 'T',
+                          slug: 'tytus-howard',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2019,
+                            selection: 23
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2019,
+                            selection: 23
+                            }
+                          ]
+                        }
+                      ],
+                    RWR:
+                      [
+                        {
+                          id: 78874,
+                          position: 'RWR',
+                          status: 'A',
+                          speed: 4.49,
+                          depth: 1,
+                          weight: 165,
+                          franchise_id: 13,
+                          gsis_id: '55934',
+                          jersey_number: '3',
+                          sportradar_id: '25e7b423-f716-4d1a-9623-cee3e7d822ab',
+                          college:
+                          {
+                            id: 182,
+                            name: 'Houston Cougars',
+                            abbreviation: 'HOUSTO',
+                            gsis_abbreviation: 'TXHO',
+                            mid_abbreviation: 'HOUSTON',
+                            tv_abbreviation: 'HOU',
+                            display_abbreviation: 'HOU',
+                          },
+                          first_name: 'Tank',
+                          last_name: 'Dell',
+                          dob: '1999-10-29',
+                          hometown:
+                            {
+                            id: 1547,
+                            name: 'Daytona Beach',
+                            state: 'FL',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 78874,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 78874,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '301376',
+                          height: 508,
+                          current_eligible_year: 2023,
+                          gsis_alt_id: '00-0038977',
+                          group_position: 'WR',
+                          slug: 'tank-dell',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 70
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 70
+                            }
+                          ]
+                        }
+                      ],
+                    SWR:
+                      [
+                        {
+                          id: 9579,
+                          position: 'SWR',
+                          status: 'A',
+                          speed: 4.46,
+                          depth: 1,
+                          weight: 191,
+                          franchise_id: 13,
+                          gsis_id: '42489',
+                          jersey_number: '1',
+                          sportradar_id: 'a1c40664-b265-4083-aad2-54b4c734f2c5',
+                          college:
+                          {
+                            id: 215,
+                            name: 'Maryland Terrapins',
+                            abbreviation: 'MARYLA',
+                            gsis_abbreviation: 'MDUN',
+                            mid_abbreviation: 'MARYLAND',
+                            tv_abbreviation: 'UMD',
+                            display_abbreviation: 'UMD',
+                          },
+                          first_name: 'Stefon',
+                          last_name: 'Diggs',
+                          dob: '1993-11-29',
+                          hometown:
+                            {
+                            id: 1547,
+                            name: 'Daytona Beach',
+                            state: 'FL',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 78874,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 78874,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '51209',
+                          height: 600,
+                          current_eligible_year: 2015,
+                          gsis_alt_id: '00-0031588',
+                          group_position: 'WR',
+                          slug: 'stefon-diggs',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 5,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 146
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 5,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 146
+                            }
+                          ]
+                        }
+                      ],
+                    TE:
+                      [
+                        {
+                          id: 47304,
+                          position: 'TE',
+                          status: 'A',
+                          speed: 4.75,
+                          depth: 1,
+                          weight: 244,
+                          franchise_id: 13,
+                          gsis_id: '46206',
+                          jersey_number: '86',
+                          sportradar_id: '8caec1b4-e0b6-4a84-b8c8-617d6e91ef6a',
+                          college:
+                          {
+                            id: 300,
+                            name: 'Stanford Cardinal',
+                            abbreviation: 'STANFO',
+                            gsis_abbreviation: 'CAST',
+                            mid_abbreviation: 'STANFORD',
+                            tv_abbreviation: 'STAN',
+                            display_abbreviation: 'STAN',
+                          },
+                          first_name: 'Dalton',
+                          last_name: 'Schultz',
+                          dob: '1996-07-11',
+                          hometown:
+                            {
+                            id: 1218,
+                            name: 'South Jordan',
+                            state: 'UT',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 47304,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 47304,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '174531',
+                          height: 605,
+                          current_eligible_year: 2018,
+                          gsis_alt_id: '00-0034383',
+                          group_position: 'TE',
+                          slug: 'dalton-schultz',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 4,
+                            franchise_id: 9,
+                            league: 'NFL',
+                            season: 2018,
+                            selection: 137
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 4,
+                            franchise_id: 9,
+                            league: 'NFL',
+                            season: 2018,
+                            selection: 137
+                            }
+                          ]
+                        }
+                      ],
+                    },
+                  package:
+                    {
+                    id: 7,
+                    description: '"3-0-1-1',
+                    abbreviation: '11',
+                    off_def: 'O'
+                    }
+                  },
+                  {
+                  positions: [
+                      'DLE',
+                      'DRE',
+                      'DRT',
+                      'DLT',
+                      'WLB',
+                      'SLB',
+                      'MLB',
+                      'FS',
+                      'SS',
+                      'LCB',
+                      'RCB'
+                  ],
+                  depth_chart:
+                    {
+                    DLE:
+                      [
+                        {
+                          id: 9521,
+                          position: 'DLE',
+                          status: 'A',
+                          speed: 4.57,
+                          depth: 1,
+                          weight: 263,
+                          franchise_id: 13,
+                          gsis_id: '42431',
+                          jersey_number: '55',
+                          sportradar_id: 'ba7fe857-df63-4aed-803a-80993b157be4',
+                          college:
+                          {
+                            id: 211,
+                            name: 'LSU Tigers',
+                            abbreviation: 'LSUTIG',
+                            gsis_abbreviation: 'LAST',
+                            mid_abbreviation: 'LSU',
+                            tv_abbreviation: 'LSU',
+                            display_abbreviation: 'LSU',
+                          },
+                          first_name: 'Danielle',
+                          last_name: 'Hunter',
+                          dob: '1994-10-29',
+                          hometown:
+                            {
+                            id: 1218,
+                            name: 'South Jordan',
+                            state: 'UT',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 9521,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 9521,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '60015',
+                          height: 605,
+                          current_eligible_year: 2015,
+                          gsis_alt_id: '00-0031565',
+                          group_position: 'ED',
+                          slug: 'danielle-hunter',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 18,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 88
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 3,
+                            franchise_id: 18,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 88
+                            }
+                          ]
+                        }
+                      ],
+                    DLT:
+                      [
+                        {
+                          id: 9468,
+                          position: 'DLT',
+                          status: 'A',
+                          speed: 4.84,
+                          depth: 1,
+                          weight: 280,
+                          franchise_id: 13,
+                          gsis_id: '42378',
+                          jersey_number: '97',
+                          sportradar_id: 'fdfb980b-1493-4698-9b97-f445a8f495da',
+                          college:
+                          {
+                            id: 167,
+                            name: 'Florida State Seminoles',
+                            abbreviation: 'FSUSEM',
+                            gsis_abbreviation: 'FLST',
+                            mid_abbreviation: 'FLORIDA ST',
+                            tv_abbreviation: 'FSU',
+                            display_abbreviation: 'FSU',
+                          },
+                          first_name: 'Mario',
+                          last_name: 'Edwards Jr.',
+                          dob: '1994-01-25',
+                          hometown:
+                            {
+                            id: 1218,
+                            name: 'South Jordan',
+                            state: 'UT',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 9468,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 9468,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '65043',
+                          height: 603,
+                          current_eligible_year: 2015,
+                          gsis_alt_id: '00-0032265',
+                          group_position: 'DI',
+                          slug: 'mario-edwards',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 2,
+                            franchise_id: 23,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 35
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 2,
+                            franchise_id: 23,
+                            league: 'NFL',
+                            season: 2015,
+                            selection: 35
+                            }
+                          ]
+                        }
+                      ],
+                    DRE:
+                      [
+                        {
+                          id: 123903,
+                          position: 'DRE',
+                          status: 'A',
+                          speed: 4.6,
+                          depth: 1,
+                          weight: 243,
+                          franchise_id: 13,
+                          gsis_id: '55867',
+                          jersey_number: '51',
+                          sportradar_id: '9e22bbe3-5323-42e0-a82e-03e3794ea67f',
+                          college:
+                          {
+                            id: 103,
+                            name: 'Alabama Crimson Tide',
+                            abbreviation: 'BAMACT',
+                            gsis_abbreviation: 'ALUN',
+                            mid_abbreviation: 'ALABAMA',
+                            tv_abbreviation: 'BAMA',
+                            display_abbreviation: 'BAMA',
+                          },
+                          first_name: 'Will',
+                          last_name: 'Anderson Jr.',
+                          dob: '2001-09-02',
+                          hometown:
+                            {
+                            id: 368,
+                            name: 'Hampton',
+                            state: 'GA',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 123903,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 123903,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '349213',
+                          height: 603,
+                          current_eligible_year: 2023,
+                          gsis_alt_id: '00-0039108',
+                          group_position: 'ED',
+                          slug: 'will-anderson',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 3
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 3
+                            }
+                          ]
+                        }
+                      ],
+                    DRT:
+                      [
+                        {
+                          id: 38558,
+                          position: 'DRT',
+                          status: 'A',
+                          speed: 5.29,
+                          depth: 1,
+                          weight: 318,
+                          franchise_id: 13,
+                          gsis_id: '46249',
+                          jersey_number: '91',
+                          sportradar_id: 'acc3f3fc-12b7-40b6-b773-b73b2b10cf32',
+                          college:
+                          {
+                            id: 146,
+                            name: 'Connecticut Huskies',
+                            abbreviation: 'UCONNH',
+                            gsis_abbreviation: 'CTUN',
+                            mid_abbreviation: 'UCONN',
+                            tv_abbreviation: 'CONN',
+                            display_abbreviation: 'CONN',
+                          },
+                          first_name: 'Folorunso',
+                          last_name: 'Fatukasi',
+                          dob: '1995-03-04',
+                          hometown:
+                            {
+                            id: 4645,
+                            name: 'Far Rockaway',
+                            state: 'NY',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 38558,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 38558,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '107865',
+                          height: 604,
+                          current_eligible_year: 2018,
+                          gsis_alt_id: '00-0034275',
+                          group_position: 'DI',
+                          slug: 'folorunso-fatukasi',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 6,
+                            franchise_id: 22,
+                            league: 'NFL',
+                            season: 2018,
+                            selection: 180
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 6,
+                            franchise_id: 22,
+                            league: 'NFL',
+                            season: 2018,
+                            selection: 180
+                            }
+                          ]
+                        }
+                      ],
+                    FS:
+                      [
+                        {
+                          id: 8665,
+                          position: 'FS',
+                          status: 'A',
+                          speed: 4.36,
+                          depth: 1,
+                          weight: 195,
+                          franchise_id: 13,
+                          gsis_id: '41256',
+                          jersey_number: '20',
+                          sportradar_id: '1b8414b5-3db8-4e89-8bcc-7ac7f7d0b931',
+                          college:
+                          {
+                            id: 254,
+                            name: 'Northern Illinois Huskies',
+                            abbreviation: 'NORTHI',
+                            gsis_abbreviation: 'ILNO',
+                            mid_abbreviation: 'N ILLINOIS',
+                            tv_abbreviation: 'NIU',
+                            display_abbreviation: 'NIU',
+                          },
+                          first_name: 'Jimmie',
+                          last_name: 'Ward',
+                          dob: '1991-07-18',
+                          hometown:
+                            {
+                            id: 4645,
+                            name: 'Far Rockaway',
+                            state: 'NY',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 8665,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 8665,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: null,
+                          height: 511,
+                          current_eligible_year: 2014,
+                          gsis_alt_id: '00-0031298',
+                          group_position: 'S',
+                          slug: 'jimmie-ward',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 28,
+                            league: 'NFL',
+                            season: 2014,
+                            selection: 30
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 28,
+                            league: 'NFL',
+                            season: 2014,
+                            selection: 3
+                            }
+                          ]
+                        }
+                      ],
+                    LCB:
+                      [
+                        {
+                          id: 146727,
+                          position: 'LCB',
+                          status: 'A',
+                          speed: 4.42,
+                          depth: 1,
+                          weight: 180,
+                          franchise_id: 13,
+                          gsis_id: '57163',
+                          jersey_number: '4',
+                          sportradar_id: 'b85f8a10-e1c2-4e5d-8aa5-08091feb1883',
+                          college:
+                          {
+                            id: 173,
+                            name: 'Georgia Bulldogs',
+                            abbreviation: 'UGABUL',
+                            gsis_abbreviation: 'GAUN',
+                            mid_abbreviation: 'GEORGIA',
+                            tv_abbreviation: 'UGA',
+                            display_abbreviation: 'UGA',
+                          },
+                          first_name: 'Kamari',
+                          last_name: 'Lassiter',
+                          dob: '2003-01-23',
+                          hometown:
+                            {
+                            id: 251,
+                            name: 'Savannah',
+                            state: 'GA',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 146727,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 146727,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '361554',
+                          height: 600,
+                          current_eligible_year: 2024,
+                          gsis_alt_id: '00-0039343',
+                          group_position: 'CB',
+                          slug: 'kamari-lassiter',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 2,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2024,
+                            selection: 42
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 2,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2024,
+                            selection: 42
+                            }
+                          ]
+                        }
+                      ],
+                    MLB:
+                      [
+                        {
+                          id: 49792,
+                          position: 'MLB',
+                          status: 'A',
+                          speed: 4.65,
+                          depth: 1,
+                          weight: 228,
+                          franchise_id: 13,
+                          gsis_id: '48268',
+                          jersey_number: '0',
+                          sportradar_id: 'e9348fc5-273d-4ac3-9760-462f37c025dc',
+                          college:
+                          {
+                            id: 165,
+                            name: 'Florida Atlantic Owls',
+                            abbreviation: 'FAUOWL',
+                            gsis_abbreviation: 'FLAT',
+                            mid_abbreviation: 'FAU',
+                            tv_abbreviation: 'FAU',
+                            display_abbreviation: 'FAU',
+                          },
+                          first_name: 'Azeez',
+                          last_name: 'Al-Shaair',
+                          dob: '1997-08-04',
+                          hometown:
+                            {
+                            id: 384,
+                            name: 'Tampa',
+                            state: 'FL',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 49792,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 49792,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '173088',
+                          height: 602,
+                          current_eligible_year: 2019,
+                          gsis_alt_id: '00-0035166',
+                          group_position: 'LB',
+                          slug: 'azeez-al-shaair',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'FA',
+                            round: 2,
+                            franchise_id: 28,
+                            league: 'NFL',
+                            season: 2019,
+                            selection: null
+                            },
+                          drafts: [
+                            {
+                            type: 'FA',
+                            round: 2,
+                            franchise_id: 28,
+                            league: 'NFL',
+                            season: 2019,
+                            selection: null
+                            }
+                          ]
+                        }
+                      ],
+                    RCB:
+                      [
+                        {
+                          id: 98253,
+                          position: 'RCB',
+                          status: 'A',
+                          speed: 4.38,
+                          depth: 1,
+                          weight: 190,
+                          franchise_id: 13,
+                          gsis_id: '54468',
+                          jersey_number: '24',
+                          sportradar_id: '825de16d-4843-4c6d-80c2-da7c3191c542',
+                          college:
+                          {
+                            id: 211,
+                            name: 'LSU Tigers',
+                            abbreviation: 'LSUTIG',
+                            gsis_abbreviation: 'LAST',
+                            mid_abbreviation: 'LSU',
+                            tv_abbreviation: 'LSU',
+                            display_abbreviation: 'LSU',
+                          },
+                          first_name: 'Derek',
+                          last_name: 'Stingley Jr.',
+                          dob: '2001-06-20',
+                          hometown:
+                            {
+                            id: 266,
+                            name: 'Baton Rouge',
+                            state: 'LA',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 98253,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 98253,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '325976',
+                          height: 600,
+                          current_eligible_year: 2022,
+                          gsis_alt_id: '00-0037237',
+                          group_position: 'CB',
+                          slug: 'derek-stingley',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 3
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 1,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 3,
+                            }
+                          ]
+                        }
+                      ],
+                    SLB:
+                      [
+                        {
+                          id: 43645,
+                          position: 'SLB',
+                          status: 'A',
+                          speed: 4.60,
+                          depth: 1,
+                          weight: 235,
+                          franchise_id: 13,
+                          gsis_id: '55043',
+                          jersey_number: '35',
+                          sportradar_id: '4d83cae0-c967-11ec-89b7-476565ea032f',
+                          college:
+                          {
+                            id: 187,
+                            name: 'Illinois Fighting Illini',
+                            abbreviation: 'ILLINO',
+                            gsis_abbreviation: 'ILUN',
+                            mid_abbreviation: 'ILLINOIS',
+                            tv_abbreviation: 'ILL',
+                            display_abbreviation: 'ILL',
+                          },
+                          first_name: 'Jake',
+                          last_name: 'Hansen',
+                          dob: '1998-06-19',
+                          hometown:
+                            {
+                            id: 1504,
+                            name: 'Tarpon Springs',
+                            state: 'FL',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 43645,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 43645,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '195370',
+                          height: 601,
+                          current_eligible_year: 2022,
+                          gsis_alt_id: '00-0037457',
+                          group_position: 'LB',
+                          slug: 'jake-hansen',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'FA',
+                            round: null,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: null
+                            },
+                          drafts: [
+                            {
+                            type: 'FA',
+                            round: null,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: null
+                            }
+                          ]
+                        }
+                      ],
+                    SS:
+                      [
+                        {
+                          id: 57737,
+                          position: 'SS',
+                          status: 'A',
+                          speed: null,
+                          depth: 1,
+                          weight: 198,
+                          franchise_id: 13,
+                          gsis_id: '54502',
+                          jersey_number: '5',
+                          sportradar_id: '7ec32a97-e677-487c-a000-74a26de95931',
+                          college:
+                          {
+                            id: 118,
+                            name: 'Baylor Bears',
+                            abbreviation: 'BAYLOR',
+                            gsis_abbreviation: 'TXBA',
+                            mid_abbreviation: 'BAYLOR',
+                            tv_abbreviation: 'BAY',
+                            display_abbreviation: 'BAY',
+                          },                        
+                          first_name: 'Jalen',
+                          last_name: 'Pitre',
+                          dob: '1999-06-03',
+                          hometown:
+                            {
+                            id: 3711,
+                            name: 'Stafford',
+                            state: 'TX',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 57737,
+                              player_status_type: 'A'
+                            },
+                            {
+                            active: true,
+                            comment: null,
+                            league_id: 2,
+                            league: 'NCAA',
+                            player_id: 57737,
+                            player_status_type: 'A'
+                          },
+                          ],
+                          college_gsis_id: '279791',
+                          height: 511,
+                          current_eligible_year: 2022,
+                          gsis_alt_id: '00-0037246',
+                          group_position: 'S',
+                          slug: 'jalen-pitre',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 2,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 37
+                            },
+                          drafts: [
+                            {
+                            type: 'AD',
+                            round: 2,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2022,
+                            selection: 37
+                            }
+                          ]
+                        }
+                      ],
+                    WLB:
+                      [
+                        {
+                          id: 98982,
+                          position: 'WLB',
+                          status: 'A',
+                          speed: 4.62,
+                          depth: 1,
+                          weight: 228,
+                          franchise_id: 13,
+                          gsis_id: '56032',
+                          jersey_number: '39',
+                          sportradar_id: 'b3523130-926a-4d1c-bfde-775975583398',
+                          college:
+                              {
+                              id: 103,
+                              name: 'Alabama Crimson Tide',
+                              abbreviation: 'BAMACT',
+                              gsis_abbreviation: 'ALUN',
+                              mid_abbreviation: 'ALABAMA',
+                              tv_abbreviation: 'BAMA',
+                              display_abbreviation: 'BAMA',
+                              },
+                          first_name: 'Henry',
+                          last_name: 'TooToo',
+                          dob: '2001-01-05',
+                          hometown:
+                            {
+                            id: 300,
+                            name: 'Sacramento',
+                            state: 'CA',
+                            country: 'US'
+                            },
+                          phonetic_first_name: null,
+                          phonetic_last_name: null,
+                          statuses: [
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 1,
+                              league: 'NFL',
+                              player_id: 98982,
+                              player_status_type: 'A'
+                            },
+                            {
+                              active: true,
+                              comment: null,
+                              league_id: 2,
+                              league: 'NCAA',
+                              player_id: 98982,
+                              player_status_type: 'A'
+                            },
+                          ],
+                          college_gsis_id: '325756',
+                          height: 601,
+                          current_eligible_year: 2023,
+                          gsis_alt_id: '00-0038599',
+                          group_position: 'LB',
+                          slug: 'henry-tootoo',
+                          is_player_injured: false,
+                          alt_id: null,
+                          draft:
+                            {
+                            type: 'AD',
+                            round: 5,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 169
+                            },
+                          drafts: [ 
+                            {
+                            type: 'AD',
+                            round: 5,
+                            franchise_id: 13,
+                            league: 'NFL',
+                            season: 2023,
+                            selection: 169
+                            }
+                          ]
+                        }
+                      ]
+                  },
+                  package:
+                    {
+                    id: 14,
+                    description: '4-3-4',
+                    abbreviation: '4-3-4',
+                    off_def: 'D'
+                    }
+                  }
+                ]
+                
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/injuries:
+    get:
+      summary: Get the injuries for players
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InjuryFeed'
+                example:
+                  player_injury_detail:
+                    player_id: 48327
+                    effective_end: '2021-12-30'
+                    effective_start: '2021-12-27'
+                    side_of_body: 'Right'
+                    surgery: 'Yes'
+                    injury_timing: 'Practice'
+                    injury: 'Unknown'
+                    injury_category: 'Soft Tissue'
+                    injury_location: 'Quadricep'
+
+
+
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/game_status:
+    get:
+      summary: Get the game statuses for players
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/GameStatusFeed'
+                example:
+                  team_member_game_status:
+                    date: '2020-09-09'
+                    missing: 'Injury'
+                    franchise_id: 13
+                    player_id: 26634
+                    game_status: 'O'
+                    official_designation: true
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/depth_charts:
+    get:
+      summary: Get the depth charts for teams
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: format
+          in: query
+          required: false
+          schema:
+            enum: ["json", "csv"]
+            default: "json"
+
+      responses:
+        '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DepthChartFeed'
+                example:
+                  depth_chart:
+                    position: 'LCB'
+                    depth: 1
+                    franchise_id: 12
+                    player_id: 44959
+                    position_group_display_order: 200
+                    off_def: 'O'
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/players/export:
+    get:
+      summary: Export all players as CSV
+      description: Returns a CSV export of all players in the given league. Response may be gzip-compressed depending on the Accept-Encoding request header.
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+      responses:
+        '200':
+          description: CSV export of all players
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/{league}/practice_status:
+    get:
+      summary: Get practice status for players
+      description: Returns current practice status information for players in the given league.
+      parameters:
+        - name: league
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["json", "csv"]
+            default: "json"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  practice_status:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        player_id:
+                          type: integer
+                        franchise_id:
+                          type: integer
+                        status:
+                          type: string
+                        injury:
+                          type: string
+                        date:
+                          type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  responses:
+    UnauthorizedError:
+      description: Access token is missing or invalid
+
+  securitySchemes:
+    PffApiSecurity:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    PackageDepthCharts:
+      type: object
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+        positions:
+          type: array
+          items:
+            type: string
+      additionalProperties:
+        $ref: '#/components/schemas/Roster'
+
+    DepthChartFeed:
+      type: object
+      properties:
+        franchises:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepthChart'
+    DepthChart:
+      type: object
+      properties:
+        franchise_id:
+          type: integer
+        player_id:
+          type: integer
+        position:
+          type: string
+        depth:
+          type: integer
+
+    Draft:
+      type: object
+      properties:
+        franchise_id:
+          type: integer
+        league:
+          type: string
+        round:
+          type: integer
+        season:
+          type: integer
+        selection:
+          type: integer
+        type:
+          type: string
+
+    Franchises:
+      type: object
+      properties:
+        franchises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Franchise'
+    Franchise:
+      type: object
+      properties:
+        id:
+          type: integer
+        league:
+          type: string
+        league_id:
+          type: integer
+        name:
+          type: string
+        sportradar_id:
+          type: string
+
+    Games:
+      type: object
+      properties:
+        leagues:
+          type: array
+          items:
+            $ref: '#/components/schemas/League'
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/Game'
+        stadiums:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stadium'
+    Game:
+      type: object
+      properties:
+        id:
+          type: integer
+        league:
+          type: string
+        league_id:
+          type: integer
+        gsis_id:
+          type: string
+        away_franchise_id:
+          type: integer
+        home_franchise_id:
+          type: integer
+        season:
+          type: integer
+        week:
+          type: integer
+        start:
+          type: string
+          format: date-time
+        kickoff_time:
+          type: string
+          format: date-time
+        stadium_id:
+          type: integer
+
+    InjuryFeed:
+      type: object
+      properties:
+        player_injuries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Injury'
+
+    Injury:
+      description: Injury information
+      type: object
+      properties:
+        player_id:
+          type: number
+        effective_end:
+          type: string
+        effective_start:
+          type: string
+        injury:
+          type: string
+        injury_category:
+          type: string
+        injury_location:
+          type: string
+        injury_timing:
+          type: string
+        side_of_body:
+          type: string
+        surgery:
+          type: string
+
+    Leagues:
+      type: object
+      properties:
+        franchises:
+          type: array
+          items:
+            $ref: '#/components/schemas/League'
+    League:
+      type: object
+      properties:
+        id:
+          type: integer
+        abbreviation:
+          type: string
+        name:
+          type: string
+
+    GameStatusFeed:
+      type: object
+      properties:
+        player_injuries:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameStatus'
+
+    GameStatus:
+      description: Game Status Information
+      type: object
+      properties:
+        date:
+          type: string
+        franchise_id:
+          type: integer
+        game_status:
+          type: string
+        misisng:
+          type: string
+        official_designation:
+          type: boolean
+        player_id:
+          type: integer
+
+
+    PlayerCombineResults:
+      type: object
+      properties:
+        player_combine_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerCombineResult'
+
+    PlayerCombineResult:
+      type: object
+      properties:
+        arm_length_in_inches:
+          type: number
+          format: float
+        bench_press_in_reps:
+          type: integer
+        broad_jump_in_inches:
+          type: number
+          format: float
+        fourty_time_in_seconds:
+          type: number
+          format: float
+        height_in_inches:
+          type: number
+          format: float
+        left_hand_size_in_inches:
+          type: number
+          format: float
+        player_id:
+          type: integer
+        position:
+          type: string
+        right_hand_size_in_inches:
+          type: number
+          format: float
+        ten_time_in_seconds:
+          type: number
+          format: float
+        three_cone_in_seconds:
+          type: number
+          format: float
+        twenty_shuttle_in_seconds:
+          type: number
+          format: float
+        twenty_time_in_seconds:
+          type: number
+          format: float
+        vertical_jump_in_inches:
+          type: number
+          format: float
+        weight_in_pounds:
+          type: number
+          format: float
+        wingspan_in_inches:
+          type: number
+          format: float
+        year:
+          type: integer
+
+    PlayerProDayResults:
+      type: object
+      properties:
+        player_pro_day:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerProDayResult'
+
+    PlayerProDayResult:
+      type: object
+      properties:
+        arm_length_in_inches:
+          type: number
+          format: float
+        bench_press_in_reps:
+          type: integer
+        broad_jump_in_inches:
+          type: number
+          format: float
+        fourty_time_in_seconds:
+          type: number
+          format: float
+        height_in_inches:
+          type: number
+          format: float
+        left_hand_size_in_inches:
+          type: number
+          format: float
+        player_id:
+          type: integer
+        position:
+          type: string
+        right_hand_size_in_inches:
+          type: number
+          format: float
+        ten_time_in_seconds:
+          type: number
+          format: float
+        three_cone_in_seconds:
+          type: number
+          format: float
+        twenty_shuttle_in_seconds:
+          type: number
+          format: float
+        twenty_time_in_seconds:
+          type: number
+          format: float
+        vertical_jump_in_inches:
+          type: number
+          format: float
+        weight_in_pounds:
+          type: number
+          format: float
+        wingspan_in_inches:
+          type: number
+          format: float
+        year:
+          type: integer
+
+    PaginatedPlayers:
+      type: object
+      properties:
+        page_number:
+          type: integer
+        page_size:
+          type: integer
+        total_entries:
+          type: integer
+        total_pages:
+          type: integer
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+        gsis_id:
+          type: string
+        college_gsis_id:
+          type: string
+        gsis_alt_id:
+          type: string
+        sportradar_id:
+          type: string
+        current_eligible_year:
+          type: integer
+        dob:
+          type: string
+          format: date
+        draft:
+          $ref: '#/components/schemas/Draft'
+        drafts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Draft'
+        college:
+          type: object
+          properties:
+            id:
+              type: integer
+            abbreviation:
+              type: string
+            display_abbreviation:
+              type: string
+            gsis_abbreviation:
+              type: string
+            mid_abbreviation:
+              type: string
+            name:
+              type: string
+            tv_abbreviation:
+              type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phonetic_first_name:
+          type: string
+        phonetic_last_name:
+          type: string
+        slug:
+          type: string
+        height:
+          type: integer
+        weight:
+          type: integer
+        retired:
+          type: boolean
+        retired_season:
+          type: integer
+        speed:
+          type: number
+          format: float
+        statuses:
+          type: array
+          items:
+            type: object
+            properties:
+              player_id:
+                type: integer
+              league_id:
+                type: integer
+              player_status_type:
+                type: string
+              comment:
+                type: string
+
+    PlayerInfo:
+      type: object
+      properties:
+        rosters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Roster'
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+
+    PlayerStatusFeed:
+      type: object
+      properties:
+        player_injuries:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerStatus'
+
+    PlayerStatus:
+      description: Player Status Information
+      type: object
+      properties:
+        date:
+          type: string
+        franchise_id:
+          type: integer
+        misisng:
+          type: string
+        player_id:
+          type: integer
+        practice_estimate:
+          type: boolean
+        practice_status:
+          type: string
+
+    Roster:
+      type: object
+      properties:
+        id:
+          type: integer
+        gsis_id:
+          type: string
+        alt_id:
+          type: integer
+        college_gsis_id:
+          type: string
+        franchise_id:
+          type: integer
+        first_name:
+          type: string
+        last_name:
+          type: string
+        current_eligible_year:
+          type: integer
+        dob:
+          type: string
+        draft:
+          $ref: '#/components/schemas/Draft'
+        drafts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Draft'
+        height:
+          type: integer
+        weight:
+          type: integer
+        jersey_number:
+          type: string
+        position:
+          type: string
+        secondary_position:
+          type: string
+        slug:
+          type: string
+        speed:
+          type: number
+          format: float
+        status:
+          type: string
+
+    Stadium:
+      type: object
+      properties:
+        id:
+          type: integer
+        address:
+          type: string
+        name:
+          type: string
+        nickname:
+          type: string
+        capacity:
+          type: integer
+        grass_type:
+          type: string
+        latitude:
+          type: integer
+        longitude:
+          type: integer
+        seating_type:
+          type: string
+        stadium_type:
+          type: string
+
+    Teams:
+      type: object
+      properties:
+        franchises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+    Team:
+      type: object
+      properties:
+        league:
+          type: string
+        league_id:
+          type: integer
+        franchise_id:
+          type: integer
+        city:
+          type: string
+        abbreviation:
+          type: string
+        gsis_abbreviation:
+          type: string
+        nickname:
+          type: string
+        start_season:
+          type: integer
+        end_season:
+          type: integer
+        slug:
+          type: string
+        primary_color:
+          type: integer
+        secondary_color:
+          type: string
+
+    TeamMembers:
+      type: object
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+        rosters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Roster'
+
+    LeagueParameter:
+      type: string
+      description: The league abbreviation in lower-case, e.g. "nfl"
+      enum:
+        - nfl
+        - ncaa
+        - cfl
+        - ufl
