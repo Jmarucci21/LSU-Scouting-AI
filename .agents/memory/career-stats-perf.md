@@ -55,3 +55,39 @@ Any change to the career query's ORDER BY / filter columns must keep a matching
 index, or the 8M-row scan regresses. Long index builds on this table (the GIN
 takes ~25s) must run via a managed background workflow, never executeSql/bash
 (both time out and a killed build can still commit).
+
+## Rebuild must be disk-safe and per-source (not one atomic transaction)
+`buildCareerStats` rebuilds a multi-GB table from an 18M-row `player_stats` fact
+table. Doing it as the original single `TRUNCATE + INSERT...SELECT` in ONE
+transaction fails as the data grows:
+- The old table's pages stay pinned until commit, so the old (~4.7GB) + new
+  (~5GB) tables + the monolithic sort's temp files (~2.4GB) + `player_stats`
+  (~5GB) blow the container disk quota → `could not write to file
+  base/pgsql_tmp/...: Disk quota exceeded`, which aborts the query.
+- When the backend then drops the connection, node-pg emits `'error'` on the
+  **checked-out** client, but `pg.Pool` only listens on IDLE clients → unhandled
+  `'error'` event → the whole Express process crashes (looks like an OOM/idle
+  reap but is neither).
+
+Fix (all three needed):
+1. Run the rebuild on a dedicated `pool.connect()` client with our own
+   `client.on('error')` handler so a mid-query drop is caught, not fatal.
+2. `TRUNCATE ... RESTART IDENTITY` in its OWN committed statement BEFORE the
+   rebuild, to free the old ~4.7GB up front.
+3. Rebuild ONE source at a time (`WHERE ps.source = $1`), committing between
+   sources so each batch's temp files are released. Career groups are keyed by
+   `(nname, source, key)` so a group never spans sources → output is identical to
+   the single query. Per batch `SET LOCAL enable_hashagg=off,
+   max_parallel_workers_per_gather=0, work_mem='256MB'` forces a serial,
+   memory-bounded GroupAggregate.
+
+**Deliberate tradeoff (do not "fix" with a staging swap):** committing per-source
+means the table is non-atomic during a rebuild — if a later source fails, that
+source is temporarily ABSENT (not wrong: `/stats/career` filters by source, so a
+missing batch just shows no rows for it, and it self-heals on the next sync). The
+usual atomic answer (build a staging table, then swap) is IMPOSSIBLE here because
+keeping the old table alive alongside a full new copy exceeds the disk quota —
+the whole point of TRUNCATE-first is to free that space. Disk budget wins over
+atomicity by necessity. The trumedia batch (biggest, ~5.8M career rows) is slow
+(~20-40 min) because it maintains the pg_trgm GIN + btrees incrementally
+(WAL-bound); that is expected, not a hang.

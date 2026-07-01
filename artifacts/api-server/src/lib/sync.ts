@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm";
 import {
   db,
+  pool,
   teamsTable,
   playersTable,
   playerGradesTable,
@@ -867,92 +868,161 @@ export async function buildCareerStats(): Promise<number> {
   // a season grows past a few million rows). ANALYZE is cheap relative to the
   // career rebuild and must run outside the transaction below.
   await db.execute(sql`ANALYZE player_stats`);
-  const total = await db.transaction(async (tx) => {
-    await tx.execute(sql`TRUNCATE TABLE player_career_stats RESTART IDENTITY`);
-    // Rate/percentage/per-game stats (Comp%, PPG, EPA/Play, passer rating, ...)
-    // cannot be summed across seasons — their career value is the average of the
-    // per-season values. Counting stats (yards, TDs, attempts) are summed. The
-    // predicate keys off the TruMedia naming conventions: a "%" or "/" in the
-    // key, a "PG" suffix (per game), the Pct/Per/Rate/Rtg/Avg tokens, a "%" unit,
-    // or rate/percent/average/per wording in the label.
-    const isRate = sql`(
-      key ~ '%|/|PG$|Pct|Per|Rate|Rtg|Avg'
-      OR unit = '%'
-      OR lower(label) ~ 'percent|rate|rating|average|per game|per play| per '
-    )`;
-    await tx.execute(sql`
-      INSERT INTO player_career_stats (
-        nname, display_name, source, key, label, category, unit,
-        total, agg, seasons_count, first_season, last_season,
-        latest_team, latest_player_id, breakdown
-      )
-      WITH per_season AS (
-        SELECT
-          lower(btrim(p.player_name)) AS nname,
-          ps.source,
-          ps.key,
-          ps.season,
-          (array_agg(p.player_name ORDER BY ps.season DESC))[1] AS display_name,
-          (array_agg(ps.label ORDER BY ps.season DESC))[1] AS label,
-          (array_agg(ps.category ORDER BY ps.season DESC))[1] AS category,
-          (array_agg(ps.unit ORDER BY ps.season DESC))[1] AS unit,
-          (array_agg(p.team ORDER BY ps.season DESC))[1] AS team,
-          (array_agg(ps.player_id ORDER BY ps.season DESC))[1] AS player_id,
-          sum(ps.value) AS value
-        FROM player_stats ps
-        JOIN players p
-          ON p.player_id = ps.player_id AND p.season = ps.season
-        WHERE ps.value IS NOT NULL
-        GROUP BY lower(btrim(p.player_name)), ps.source, ps.key, ps.season
-      ),
-      agg AS (
-        SELECT
-          nname,
-          source,
-          key,
-          (array_agg(display_name ORDER BY season DESC))[1] AS display_name,
-          (array_agg(label ORDER BY season DESC))[1] AS label,
-          (array_agg(category ORDER BY season DESC))[1] AS category,
-          (array_agg(unit ORDER BY season DESC))[1] AS unit,
-          sum(value) AS sum_value,
-          avg(value) AS avg_value,
-          count(*)::int AS seasons_count,
-          min(season) AS first_season,
-          max(season) AS last_season,
-          (array_agg(team ORDER BY season DESC))[1] AS latest_team,
-          (array_agg(player_id ORDER BY season DESC))[1] AS latest_player_id,
-          jsonb_agg(
-            jsonb_build_object('season', season, 'team', team, 'value', value)
-            ORDER BY season
-          ) AS breakdown
-        FROM per_season
-        WHERE nname <> ''
-        GROUP BY nname, source, key
-      )
+
+  // Rate/percentage/per-game stats (Comp%, PPG, EPA/Play, passer rating, ...)
+  // cannot be summed across seasons — their career value is the average of the
+  // per-season values. Counting stats (yards, TDs, attempts) are summed. The
+  // predicate keys off the TruMedia naming conventions: a "%" or "/" in the
+  // key, a "PG" suffix (per game), the Pct/Per/Rate/Rtg/Avg tokens, a "%" unit,
+  // or rate/percent/average/per wording in the label.
+  const isRate = `(
+    key ~ '%|/|PG$|Pct|Per|Rate|Rtg|Avg'
+    OR unit = '%'
+    OR lower(label) ~ 'percent|rate|rating|average|per game|per play| per '
+  )`;
+  const insertSql = `
+    INSERT INTO player_career_stats (
+      nname, display_name, source, key, label, category, unit,
+      total, agg, seasons_count, first_season, last_season,
+      latest_team, latest_player_id, breakdown
+    )
+    WITH per_season AS (
+      SELECT
+        lower(btrim(p.player_name)) AS nname,
+        ps.source,
+        ps.key,
+        ps.season,
+        (array_agg(p.player_name ORDER BY ps.season DESC))[1] AS display_name,
+        (array_agg(ps.label ORDER BY ps.season DESC))[1] AS label,
+        (array_agg(ps.category ORDER BY ps.season DESC))[1] AS category,
+        (array_agg(ps.unit ORDER BY ps.season DESC))[1] AS unit,
+        (array_agg(p.team ORDER BY ps.season DESC))[1] AS team,
+        (array_agg(ps.player_id ORDER BY ps.season DESC))[1] AS player_id,
+        sum(ps.value) AS value
+      FROM player_stats ps
+      JOIN players p
+        ON p.player_id = ps.player_id AND p.season = ps.season
+      WHERE ps.value IS NOT NULL AND ps.source = $1
+      GROUP BY lower(btrim(p.player_name)), ps.source, ps.key, ps.season
+    ),
+    agg AS (
       SELECT
         nname,
-        display_name,
         source,
         key,
-        label,
-        category,
-        unit,
-        CASE WHEN ${isRate} THEN avg_value ELSE sum_value END AS total,
-        CASE WHEN ${isRate} THEN 'avg' ELSE 'sum' END AS agg,
-        seasons_count,
-        first_season,
-        last_season,
-        latest_team,
-        latest_player_id,
-        breakdown
-      FROM agg
-    `);
+        (array_agg(display_name ORDER BY season DESC))[1] AS display_name,
+        (array_agg(label ORDER BY season DESC))[1] AS label,
+        (array_agg(category ORDER BY season DESC))[1] AS category,
+        (array_agg(unit ORDER BY season DESC))[1] AS unit,
+        sum(value) AS sum_value,
+        avg(value) AS avg_value,
+        count(*)::int AS seasons_count,
+        min(season) AS first_season,
+        max(season) AS last_season,
+        (array_agg(team ORDER BY season DESC))[1] AS latest_team,
+        (array_agg(player_id ORDER BY season DESC))[1] AS latest_player_id,
+        jsonb_agg(
+          jsonb_build_object('season', season, 'team', team, 'value', value)
+          ORDER BY season
+        ) AS breakdown
+      FROM per_season
+      WHERE nname <> ''
+      GROUP BY nname, source, key
+    )
+    SELECT
+      nname,
+      display_name,
+      source,
+      key,
+      label,
+      category,
+      unit,
+      CASE WHEN ${isRate} THEN avg_value ELSE sum_value END AS total,
+      CASE WHEN ${isRate} THEN 'avg' ELSE 'sum' END AS agg,
+      seasons_count,
+      first_season,
+      last_season,
+      latest_team,
+      latest_player_id,
+      breakdown
+    FROM agg
+  `;
 
-    const [{ count }] = await tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(playerCareerStatsTable);
-    return count;
-  });
+  // Free the previous career table's disk in its OWN committed statement BEFORE
+  // the rebuild. player_career_stats is multi-GB; truncating it inside the insert
+  // transaction would pin the old relation's pages until commit while the new
+  // table + temp sort files are also written, blowing the container disk quota
+  // ("could not write to file ...: Disk quota exceeded"). Committing the truncate
+  // first reclaims that space up front.
+  await db.execute(sql`TRUNCATE TABLE player_career_stats RESTART IDENTITY`);
+
+  // Rebuild ONE source at a time. Career rows are grouped by (nname, source, key)
+  // so a group never spans sources — per-source batches produce identical output
+  // while keeping each aggregation's sort small (TruMedia alone is ~16M of the
+  // ~18M fact rows). Committing between sources releases that batch's temp files
+  // before the next one starts, so peak temp-disk stays bounded.
+  //
+  // Deliberate tradeoff: committing per-source is NOT atomic — if a later source
+  // throws, the table is left with the earlier sources only. That is acceptable
+  // here (and self-healing on the next sync) because /stats/career filters by
+  // source, so a missing batch shows as "no rows for that source", never wrong
+  // values. Do NOT "fix" this by building a staging table and swapping: keeping
+  // the old multi-GB table alive alongside a full new copy exceeds the container
+  // disk quota, which is the exact problem the TRUNCATE-first above solves.
+  const sourceRows = await db
+    .select({ source: playerStatsTable.source })
+    .from(playerStatsTable)
+    .groupBy(playerStatsTable.source);
+  const sources = sourceRows
+    .map((r) => r.source)
+    .filter((s): s is string => !!s);
+
+  for (const source of sources) {
+    progress = {
+      phase: `Building career totals (${source})`,
+      processed: 0,
+      total: 0,
+    };
+    // Dedicated pooled client (not db.transaction): if the backend drops the
+    // connection mid-query, node-pg emits 'error' on the checked-out Client and
+    // the pool only listens on IDLE clients, so an in-flight drop would be an
+    // unhandled 'error' that crashes the whole process. Owning the client lets us
+    // attach our own handler (non-fatal) and tune memory for this one job:
+    // force a serial, memory-bounded GroupAggregate (the default parallel plan at
+    // work_mem=4MB multiplies memory across workers) with a larger work_mem so the
+    // sort stays efficient without OOM-killing the backend.
+    const client = await pool.connect();
+    let clientError: Error | null = null;
+    const onErr = (e: Error) => {
+      clientError = e;
+      logger.error({ err: e.message, source }, "career rebuild client error");
+    };
+    client.on("error", onErr);
+    try {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL enable_hashagg = off");
+      await client.query("SET LOCAL max_parallel_workers_per_gather = 0");
+      await client.query("SET LOCAL work_mem = '256MB'");
+      await client.query(insertSql, [source]);
+      await client.query("COMMIT");
+    } catch (e) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // connection may already be dead; nothing to roll back
+      }
+      client.removeListener("error", onErr);
+      client.release();
+      throw e;
+    }
+    client.removeListener("error", onErr);
+    client.release();
+    if (clientError) throw clientError;
+  }
+
+  const [{ count: total }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(playerCareerStatsTable);
   // Keep the planner's row estimate fresh: the /stats/career endpoint reads
   // reltuples for the unfiltered total instead of a multi-second count(*).
   await db.execute(sql`ANALYZE player_career_stats`);
