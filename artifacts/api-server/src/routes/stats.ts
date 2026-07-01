@@ -21,6 +21,7 @@ import {
   positionGroupMembers,
   positionGroupOptions,
   statsbombCategoriesForPosition,
+  pffCategoriesForPosition,
   expandConference,
   normalizeConference,
   orderConferences,
@@ -89,22 +90,24 @@ router.get("/players/:playerId/stats", async (req, res): Promise<void> => {
         )
     : [];
 
-  // StatsBomb tracking stats are bucketed by position-specific `category`
-  // (DL Get Off, WR Get Off, OL Pass Pro Dist, ...). Show a player only the
-  // categories relevant to their position so e.g. a safety doesn't see
-  // "DL Get Off" / "WR Get Off" cross-position noise. A null set means the
-  // position is unknown/ambiguous -> show everything. Non-StatsBomb sources are
-  // never filtered.
+  // StatsBomb and PFF stats are both bucketed by position-relevant `category`
+  // (StatsBomb: DL Get Off, WR Get Off, ...; PFF: Passing, Receiving, Pass
+  // Rush, ...). Show a player only the categories relevant to their position
+  // so e.g. a safety doesn't see "DL Get Off" and a WR doesn't see "Pass
+  // Blocking". A null set for a source means the position is unknown/ambiguous
+  // -> show everything for that source. Other sources are never filtered.
   const allowedSbCategories = statsbombCategoriesForPosition(latest?.position);
-  const rows =
-    allowedSbCategories == null
-      ? allRows
-      : allRows.filter(
-          (r) =>
-            r.source !== "statsbomb" ||
-            r.category == null ||
-            allowedSbCategories.has(r.category),
-        );
+  const allowedPffCategories = pffCategoriesForPosition(latest?.position);
+  const rows = allRows.filter((r) => {
+    if (r.category == null) return true;
+    if (r.source === "statsbomb" && allowedSbCategories != null) {
+      return allowedSbCategories.has(r.category);
+    }
+    if (r.source === "pff" && allowedPffCategories != null) {
+      return allowedPffCategories.has(r.category);
+    }
+    return true;
+  });
 
   const bySource = new Map<
     string,

@@ -122,6 +122,72 @@ export function statsbombCategoriesForPosition(
   return new Set([STATSBOMB_UNIVERSAL_CATEGORY, ...allowed]);
 }
 
+// --- PFF position relevance ----------------------------------------------
+
+/**
+ * PFF raw stats are bucketed into role-based `category` groups
+ * (Passing, Receiving, Rushing, Run Defense, Pass Rush, Pass Blocking,
+ * Penalties) because each play-by-play feed credits multiple player roles.
+ * A player only meaningfully owns the categories for their position — a WR
+ * should see Receiving, not Pass Rush or Pass Blocking — so on the player's
+ * Raw Stats tab PFF is filtered to the relevant categories, mirroring the
+ * StatsBomb treatment above.
+ *
+ * "Penalties" is universal (any player can be penalized) and is added
+ * implicitly by `pffCategoriesForPosition`, like "Primary" for StatsBomb.
+ * The "ATH" catch-all group is intentionally absent so genuinely ambiguous
+ * positions fall through to "show everything" rather than being over-filtered.
+ *
+ * This is a deliberately editable scouting judgment, not a hard rule.
+ */
+const PFF_CATEGORIES_BY_GROUP: Record<string, string[]> = {
+  // Offense
+  QB: ["Passing", "Rushing"],
+  RB: ["Rushing", "Receiving"],
+  WR: ["Receiving"],
+  TE: ["Receiving", "Pass Blocking"],
+  OL: ["Pass Blocking"],
+  C: ["Pass Blocking"],
+  G: ["Pass Blocking"],
+  T: ["Pass Blocking"],
+  // Defense
+  EDGE: ["Pass Rush", "Run Defense"],
+  DT: ["Pass Rush", "Run Defense"],
+  DL: ["Pass Rush", "Run Defense"],
+  LB: ["Run Defense", "Pass Rush"],
+  MLB: ["Run Defense", "Pass Rush"],
+  OLB: ["Run Defense", "Pass Rush"],
+  CB: ["Run Defense"],
+  NB: ["Run Defense"],
+  S: ["Run Defense"],
+  DB: ["Run Defense"],
+  // Special teams (PFF feeds don't cover kicking; only penalties may apply)
+  K: [],
+  P: [],
+  LS: [],
+  ST: [],
+};
+
+/** "Penalties" applies to any player and is relevant to every position. */
+const PFF_UNIVERSAL_CATEGORY = "Penalties";
+
+/**
+ * The set of PFF categories relevant to a raw `players.position`, or `null`
+ * when the position is unknown / a catch-all (ATH/PR/?) so the caller shows
+ * every category rather than hiding data. The returned set always includes
+ * the universal "Penalties" category.
+ */
+export function pffCategoriesForPosition(
+  position: string | null | undefined,
+): Set<string> | null {
+  if (!position) return null;
+  const group = GROUP_VALUE_BY_POSITION.get(position);
+  if (!group) return null;
+  const allowed = PFF_CATEGORIES_BY_GROUP[group];
+  if (!allowed) return null;
+  return new Set([PFF_UNIVERSAL_CATEGORY, ...allowed]);
+}
+
 /** Canonical position groups exposed to clients (value + label only). */
 export function positionGroupOptions(): { value: string; label: string }[] {
   return POSITION_GROUPS.map((g) => ({ value: g.value, label: g.label }));
