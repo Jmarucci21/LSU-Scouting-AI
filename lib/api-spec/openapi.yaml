@@ -465,6 +465,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /sync/pff:
+    post:
+      operationId: runPffBackfill
+      tags: [sync]
+      summary: Backfill PFF premium raw stats across a season range
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrumediaBackfillInput"
+      responses:
+        "200":
+          description: PFF backfill started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "503":
+          description: External source unavailable or not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:

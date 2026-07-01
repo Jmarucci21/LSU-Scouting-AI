@@ -1,0 +1,66 @@
+openapi: 3.0.0
+
+info:
+  version: "1.1"
+  title: PFF Bearer Auth
+  description: API for obtaining a Bearer auth token
+  contact:
+    name: PFF Support
+    email: support@profootballfocus.com
+    url: "http://www.profootballfocus.com"
+  license:
+    name: "Copyright 2019 Pro Football Focus - All rights reserved"
+    url: "https://www.profootballfocus.com"
+
+externalDocs:
+  description: PFF API User Guide
+  url: https://api.profootballfocus.com/doc/index.html
+
+servers:
+  - description: PFF Production
+    url: 'https://api.profootballfocus.com/auth'
+
+security:
+  - api-key: []
+
+paths:
+  /login:
+    post:
+      summary: Login with API key
+      description: |
+        Given a valid API key in the `x-api-key` header, returns a JWT token
+        that can be used as the bearer token in all other API requests
+      parameters:
+        - name: x-api-key
+          in: header
+          description: API key
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A JSON object containing the JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jwt:
+                    type: string
+              example:
+                jwt: "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJQRkYuSG9kb3IiLCJleHAiOjE1NTYxMjMxNDksImlhdCI6MTU1NjExOTU0OSwiaXNzIjoiUEZGLkhvZG9yIiwianRpIjoiMzFjMzY4N2UtN2ZkMS00Y2RlLWE2NGEtMzk1ODk3MWNkYjRlIiwibmJmIjoxNTU2MTE5NTQ4LCJzdWIiOiJ7XCJhY2Nlc3NfdG9rZW5cIjpcImlHV3pOS0R2WE5vSjdfUjY0VXo1LVNZVzljdUlhQUJ0a1NVekNPblpqUUF2Y2hRMGNEcGJhc1V1WFpZMDU0RzdcIixcImFwaV9rZXlcIjpcIkM4OEIyNzdCLUQzM0MtNEZCQi04RkEzLTFDRjc2MUE0MEVBQVwiLFwiZXhwaXJlc19pblwiOjM2MDAsXCJ1c2VyXCI6e1wiZW1haWxcIjpcImZha2VAYnJvbmNvcy5uZmwubmV0XCIsXCJmaXJzdF9uYW1lXCI6XCJCcm9uY29zXCIsXCJncm91cHNcIjpbXSxcImxhc3RfbmFtZVwiOlwiQVBJIEtleVwiLFwicGVybWlzc2lvbnNcIjp7XCJhcGlcIjpbXCJhbmFseXRpY3NcIixcInZpZGVvXCIsXCJmYW50YXN5XCIsXCJtYXN0ZXJfZGF0YVwiXSxcImxlYWd1ZVwiOltcIm5mbFwiLFwibmNhYVwiLFwiaHNcIixcImFhZlwiXX0sXCJwcmVmZXJlbmNlc1wiOntcImZlYXR1cmVzXCI6XCJcIn0sXCJ1aWRcIjpcIjE4NzYwYzY2LTU2YTUtNDc1NC1iNTA2LTBjYzJjNjBjNTQwNFwifX0iLCJ0eXAiOiJhY2Nlc3MifQ.zNKxgWt-RU9XbCfSE7yE_8DTmyOpzWl1Ct9VHJJZdzzMlKuM22P0DX4TEKQ1lQhNq7ls4-SrvZ3XYnCX3ldfjw"
+
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+
+  securitySchemes:
+    api-key:
+      type: apiKey
+      name: x-api-key
+      in: header
+
+  responses:
+    UnauthorizedError:
+      description: API key is missing or invalid

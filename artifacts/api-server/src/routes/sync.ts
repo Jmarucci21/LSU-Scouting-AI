@@ -15,6 +15,8 @@ import {
   RunWikipediaBackfillBody,
   RunTeamSitesBackfillResponse,
   RunTeamSitesBackfillBody,
+  RunPffBackfillResponse,
+  RunPffBackfillBody,
   UpdateSyncScheduleResponse,
   UpdateSyncScheduleBody,
 } from "@workspace/api-zod";
@@ -25,6 +27,7 @@ import {
   startEspnBackfill,
   startWikipediaBackfill,
   startTeamSitesBackfill,
+  startPffBackfill,
   getSourceStatuses,
   isSyncing,
   getProgress,
@@ -232,6 +235,35 @@ router.post("/sync/teamsites", async (req, res): Promise<void> => {
   const result = startTeamSitesBackfill(fromSeason, toSeason);
   res.json(
     RunTeamSitesBackfillResponse.parse({
+      status: result.status,
+      playersSynced: result.playersSynced,
+      teamsSynced: result.teamsSynced,
+      season: result.season,
+      message: result.message,
+    }),
+  );
+});
+
+router.post("/sync/pff", async (req, res): Promise<void> => {
+  const parsed = RunPffBackfillBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const now = new Date();
+  const currentSeason =
+    now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  const fromSeason = parsed.data.fromSeason ?? 2016;
+  const toSeason = parsed.data.toSeason ?? currentSeason;
+  if (fromSeason > toSeason) {
+    res.status(400).json({ error: "fromSeason must be <= toSeason" });
+    return;
+  }
+
+  const result = startPffBackfill(fromSeason, toSeason);
+  res.json(
+    RunPffBackfillResponse.parse({
       status: result.status,
       playersSynced: result.playersSynced,
       teamsSynced: result.teamsSynced,

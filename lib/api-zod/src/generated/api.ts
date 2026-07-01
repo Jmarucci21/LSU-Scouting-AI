@@ -803,3 +803,54 @@ export const RunTeamSitesBackfillResponse = zod.object({
 })
 
 
+/**
+ * @summary Backfill PFF premium raw stats across a season range
+ */
+export const RunPffBackfillBody = zod.object({
+  "fromSeason": zod.number().optional(),
+  "toSeason": zod.number().optional()
+})
+
+export const RunPffBackfillResponse = zod.object({
+  "status": zod.string(),
+  "running": zod.boolean().optional(),
+  "progress": zod.union([zod.object({
+  "phase": zod.string(),
+  "processed": zod.number(),
+  "total": zod.number()
+}),zod.null()]).optional(),
+  "lastSyncAt": zod.string().nullish(),
+  "playersSynced": zod.number().nullish(),
+  "teamsSynced": zod.number().nullish(),
+  "season": zod.number().nullish(),
+  "message": zod.string().nullish(),
+  "sources": zod.array(zod.object({
+  "name": zod.string(),
+  "configured": zod.boolean(),
+  "ok": zod.boolean().nullish(),
+  "detail": zod.string().nullish()
+})).optional(),
+  "scheduler": zod.object({
+  "enabled": zod.boolean(),
+  "intervalHours": zod.number(),
+  "nextRunAt": zod.string().nullish()
+}).optional(),
+  "scheduledFailure": zod.union([zod.object({
+  "season": zod.number().nullable(),
+  "message": zod.string().nullable(),
+  "failedAt": zod.string().nullable()
+}),zod.null()]).optional(),
+  "history": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "trigger": zod.string(),
+  "season": zod.number().nullish(),
+  "playersSynced": zod.number().nullish(),
+  "teamsSynced": zod.number().nullish(),
+  "message": zod.string().nullish(),
+  "startedAt": zod.string().nullish(),
+  "finishedAt": zod.string().nullish()
+})).optional()
+})
+
+

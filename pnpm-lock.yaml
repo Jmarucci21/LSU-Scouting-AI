@@ -190,6 +190,9 @@ importers:
       pino-http:
         specifier: ^10.5.0
         version: 10.5.0
+      stream-json:
+        specifier: ^3.4.0
+        version: 3.4.0
     devDependencies:
       '@types/cookie-parser':
         specifier: ^1.4.10
@@ -5365,6 +5368,14 @@ packages:
   stream-buffers@2.2.0:
     resolution: {integrity: sha512-uyQK/mx5QjHun80FLJTfaWE7JtwfRMKBLkMne6udYOmvH0CawotVa7TfgYHzAnpphn4+TweIx1QKMnRIbipmUg==}
     engines: {node: '>= 0.10.0'}
+
+  stream-chain@4.2.5:
+    resolution: {integrity: sha512-Wtyq3bNE3ggLR0v2vftqvuhltym3WbZAkZpfIrkr5F/6vpeUmWmwTgXa16zD87gpahwJ/Qulq3zVfUlgIc0J2A==}
+    engines: {node: '>=22'}
+
+  stream-json@3.4.0:
+    resolution: {integrity: sha512-7NEiOhtS0W7ZrwnqJc/fugsGQMdpNJng+v1s2xLTrmfBN2vcYDyBglCK2+eITif0VkHLXnTdALgQI9TnZMBhYA==}
+    engines: {node: '>=22'}
 
   strict-uri-encode@2.0.0:
     resolution: {integrity: sha512-QwiXZgpRcKkhTj2Scnn++4PKtWsH0kpzZ62L2R6c/LUVYv7hVnZqcg2+sMuT6R7Jusu1vviK/MFsu6kNJfWlEQ==}
@@ -11535,6 +11546,12 @@ snapshots:
   statuses@2.0.2: {}
 
   stream-buffers@2.2.0: {}
+
+  stream-chain@4.2.5: {}
+
+  stream-json@3.4.0:
+    dependencies:
+      stream-chain: 4.2.5
 
   strict-uri-encode@2.0.0: {}
 

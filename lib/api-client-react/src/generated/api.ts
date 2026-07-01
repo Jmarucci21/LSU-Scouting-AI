@@ -1705,3 +1705,73 @@ export const useRunTeamSitesBackfill = <TError = ErrorType<Error>,
       return useMutation(getRunTeamSitesBackfillMutationOptions(options));
     }
 
+export const getRunPffBackfillUrl = () => {
+
+
+
+
+  return `/api/sync/pff`
+}
+
+/**
+ * @summary Backfill PFF premium raw stats across a season range
+ */
+export const runPffBackfill = async (trumediaBackfillInput?: TrumediaBackfillInput, options?: RequestInit): Promise<SyncStatus> => {
+
+  return customFetch<SyncStatus>(getRunPffBackfillUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trumediaBackfillInput)
+  }
+);}
+
+
+
+
+export const getRunPffBackfillMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runPffBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runPffBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext> => {
+
+const mutationKey = ['runPffBackfill'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runPffBackfill>>, {data?: BodyType<TrumediaBackfillInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runPffBackfill(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunPffBackfillMutationResult = NonNullable<Awaited<ReturnType<typeof runPffBackfill>>>
+    export type RunPffBackfillMutationBody = BodyType<TrumediaBackfillInput> | undefined
+    export type RunPffBackfillMutationError = ErrorType<Error>
+
+    /**
+ * @summary Backfill PFF premium raw stats across a season range
+ */
+export const useRunPffBackfill = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runPffBackfill>>, TError,{data?: BodyType<TrumediaBackfillInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runPffBackfill>>,
+        TError,
+        {data?: BodyType<TrumediaBackfillInput>},
+        TContext
+      > => {
+      return useMutation(getRunPffBackfillMutationOptions(options));
+    }
+

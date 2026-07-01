@@ -43,7 +43,12 @@ import {
   fetchTrumediaTeams,
   fetchTrumediaTeamPlayers,
 } from "./sources/trumedia";
-import { pffConfigured, checkPff } from "./sources/pff";
+import {
+  pffConfigured,
+  checkPff,
+  fetchPffTeams,
+  aggregatePffSeason,
+} from "./sources/pff";
 import {
   fetchEspnTeams,
   fetchEspnFbsTeamIds,
@@ -381,12 +386,13 @@ async function performSync(
       await tx
         .delete(playerGradesTable)
         .where(sql`${playerGradesTable.season} = ${season}`);
-      // Exclude tm-% rows so TruMedia-created players (and their stats) survive
-      // a Telemetry resync; ingestTrumedia refreshes them later in this sync.
+      // Exclude tm-%/pff-% rows so TruMedia- and PFF-created players (and their
+      // stats) survive a Telemetry resync; those ingests refresh them later in
+      // this same sync.
       await tx
         .delete(playersTable)
         .where(
-          sql`${playersTable.season} = ${season} AND ${playersTable.playerId} NOT LIKE 'tm-%'`,
+          sql`${playersTable.season} = ${season} AND ${playersTable.playerId} NOT LIKE 'tm-%' AND ${playersTable.playerId} NOT LIKE 'pff-%'`,
         );
 
       for (const batch of chunk(playerValues, 500)) {
@@ -438,6 +444,19 @@ async function performSync(
       }
     }
 
+    let pffSynced = 0;
+    if (pffConfigured()) {
+      try {
+        const r = await ingestPff(season);
+        pffSynced = r.statLines;
+      } catch (e) {
+        logger.error(
+          { err: (e as Error).message, season },
+          "PFF raw-stats ingest failed (non-fatal)",
+        );
+      }
+    }
+
     // Project Telemetry's grades/value metrics into player_stats so Telemetry
     // appears as a raw source like the others (pure DB-to-DB, never fails sync).
     let telemetrySynced = 0;
@@ -472,7 +491,7 @@ async function performSync(
       );
     }
 
-    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${telemetrySynced} Telemetry stat lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, ${trumediaSynced} TruMedia stat lines, and ${espnPhotos} ESPN photos for ${season}`;
+    const message = `Synced ${playersSynced} players, ${teamsSynced} teams, ${gradeRows.length} grade lines, ${telemetrySynced} Telemetry stat lines, ${statsSynced} StatsBomb stat lines, ${cfbdSynced} CFBD stat lines, ${trumediaSynced} TruMedia stat lines, ${pffSynced} PFF stat lines, and ${espnPhotos} ESPN photos for ${season}`;
 
     await db
       .update(syncMetaTable)
@@ -1157,6 +1176,304 @@ async function ingestTrumedia(
     "TruMedia raw-stats ingest complete",
   );
   return { statLines: statRows.length, playersCreated: createdPlayers.size, matched };
+}
+
+// --- PFF raw-stats ingest ------------------------------------------------
+
+/**
+ * Pull PFF premium NCAA play-by-play feeds for a season, aggregate them into
+ * per-player season counting stats (grades excluded — raw stats only), and
+ * write them into player_stats (source "pff"). Mirrors the TruMedia pattern:
+ * players that match an existing (non tm-/pff-) Telemetry roster row attach to
+ * that canonical row; everyone else gets a lightweight pff-<pffPlayerId> row so
+ * all PFF players are captured (the Telemetry main-sync player delete excludes
+ * pff-% so these survive resyncs). PFF play feeds reference teams by
+ * abbreviation, resolved to our FBS schools via the PFF teams master data.
+ * Replaces this season's PFF rows (and pff-created players) atomically.
+ */
+async function ingestPff(
+  season: number,
+): Promise<{ statLines: number; playersCreated: number; matched: number }> {
+  progress = { phase: `PFF ${season}: resolving teams`, processed: 0, total: 0 };
+  const pffTeams = await fetchPffTeams(season);
+  if (pffTeams.length === 0) return { statLines: 0, playersCreated: 0, matched: 0 };
+
+  // Our FBS schools (from Telemetry) drive both team mapping and FBS filtering.
+  const dbTeams = await db
+    .select({
+      school: teamsTable.school,
+      conference: teamsTable.conference,
+    })
+    .from(teamsTable);
+  const schoolsLower = dbTeams.map((t) => ({
+    raw: t.school,
+    lower: t.school.toLowerCase(),
+    norm: normName(t.school),
+  }));
+  const confMap = new Map<string, string | null>();
+  for (const t of dbTeams) confMap.set(t.school, t.conference);
+
+  // Resolve a PFF school name to one of our schools: exact normalized match
+  // first, then longest case-insensitive prefix. Unmatched teams (non-FBS or
+  // name mismatch) are dropped, consistent with the other raw sources.
+  function resolveSchool(pffSchool: string): string | null {
+    const norm = normName(pffSchool);
+    for (const s of schoolsLower) {
+      if (s.norm === norm) return s.raw;
+    }
+    const lower = pffSchool.toLowerCase();
+    let best: string | null = null;
+    let bestLen = 0;
+    for (const s of schoolsLower) {
+      if (lower.startsWith(s.lower) && s.lower.length > bestLen) {
+        best = s.raw;
+        bestLen = s.lower.length;
+      }
+    }
+    return best;
+  }
+
+  // PFF abbreviation (lowercased) -> our school. Only FBS abbrevs are kept, and
+  // this set bounds the streaming aggregation (non-FBS rows are skipped early).
+  const abbrevToSchool = new Map<string, string>();
+  for (const t of pffTeams) {
+    const school = resolveSchool(t.school);
+    if (school) abbrevToSchool.set(t.abbreviation.toLowerCase(), school);
+  }
+  const allowedAbbrevs = new Set(abbrevToSchool.keys());
+  if (allowedAbbrevs.size === 0) return { statLines: 0, playersCreated: 0, matched: 0 };
+
+  // Canonical (non tm-/pff-) Telemetry players for the season, used to match PFF
+  // players to existing rows. We EXCLUDE pff-% rows for the same reason the
+  // TruMedia ingest excludes tm-%: the transaction below deletes all pff-% rows
+  // for the season, so matching against one would orphan its stats.
+  const dbPlayers = await db
+    .select({
+      playerId: playersTable.playerId,
+      playerName: playersTable.playerName,
+      team: playersTable.team,
+    })
+    .from(playersTable)
+    .where(
+      sql`${playersTable.season} = ${season} AND ${playersTable.playerId} NOT LIKE 'tm-%' AND ${playersTable.playerId} NOT LIKE 'pff-%'`,
+    );
+  const bySchool = new Map<string, Map<string, string>>();
+  for (const p of dbPlayers) {
+    if (!p.team) continue;
+    const ns = normName(p.team);
+    let m = bySchool.get(ns);
+    if (!m) {
+      m = new Map();
+      bySchool.set(ns, m);
+    }
+    m.set(normName(p.playerName), p.playerId);
+  }
+
+  progress = { phase: `PFF ${season}: fetching feeds`, processed: 0, total: 0 };
+  const aggregated = await aggregatePffSeason(
+    season,
+    allowedAbbrevs,
+    (feed, index, total) => {
+      progress = {
+        phase: `PFF ${season}: aggregating ${feed}`,
+        processed: index,
+        total,
+      };
+    },
+  );
+
+  progress = { phase: `PFF ${season}: writing`, processed: 0, total: aggregated.length };
+  const statRows: (typeof playerStatsTable.$inferInsert)[] = [];
+  const createdPlayers = new Map<string, typeof playersTable.$inferInsert>();
+  let matched = 0;
+  for (const p of aggregated) {
+    const school = abbrevToSchool.get(p.teamAbbrev);
+    if (!school) continue;
+    let playerId = bySchool.get(normName(school))?.get(normName(p.name));
+    if (playerId) {
+      matched += 1;
+    } else {
+      playerId = `pff-${p.pffPlayerId}`;
+      if (!createdPlayers.has(playerId)) {
+        createdPlayers.set(playerId, {
+          playerId,
+          season,
+          playerName: p.name,
+          team: school,
+          position: p.position,
+          posGroup: null,
+          conference: confMap.get(school) ?? null,
+          jersey: null,
+          week: null,
+          snapsNonSt: null,
+          snapsSt: null,
+          war: null,
+          twar: null,
+          par: null,
+          playerValue: null,
+          playerValuePct: null,
+          playerTier: null,
+        });
+      }
+    }
+    for (const st of p.stats) {
+      statRows.push({
+        source: "pff",
+        playerId,
+        season,
+        week: null,
+        category: st.category,
+        key: st.key,
+        label: st.label,
+        value: st.value,
+        strValue: null,
+        unit: st.unit,
+      });
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    // Replace this season's pff-created players. Matched players attach to their
+    // canonical Telemetry rows and are never touched here.
+    await tx
+      .delete(playersTable)
+      .where(
+        sql`${playersTable.season} = ${season} AND ${playersTable.playerId} LIKE 'pff-%'`,
+      );
+    for (const batch of chunk([...createdPlayers.values()], 500)) {
+      await tx.insert(playersTable).values(batch);
+    }
+    await tx
+      .delete(playerStatsTable)
+      .where(
+        sql`${playerStatsTable.source} = 'pff' AND ${playerStatsTable.season} = ${season}`,
+      );
+    for (const batch of chunk(statRows, 1000)) {
+      await tx.insert(playerStatsTable).values(batch);
+    }
+  });
+
+  logger.info(
+    {
+      season,
+      pffTeams: allowedAbbrevs.size,
+      pffPlayers: aggregated.length,
+      matched,
+      playersCreated: createdPlayers.size,
+      statLines: statRows.length,
+    },
+    "PFF raw-stats ingest complete",
+  );
+  return { statLines: statRows.length, playersCreated: createdPlayers.size, matched };
+}
+
+/**
+ * Backfill PFF stats across a season range in the background. Mirrors the
+ * TruMedia backfill: loops seasons, shares the sync guard + progress/status.
+ */
+export function startPffBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger = "manual",
+): SyncResult {
+  const season = toSeason;
+  if (syncing) {
+    return {
+      status: "running",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season,
+      message: "A sync is already running",
+    };
+  }
+  if (!pffConfigured()) {
+    return {
+      status: "error",
+      playersSynced: 0,
+      teamsSynced: 0,
+      season,
+      message: "PFF is not configured (PFF_API_KEY not set)",
+    };
+  }
+  syncing = true;
+  progress = { phase: "Starting PFF backfill", processed: 0, total: 0 };
+  void performPffBackfill(fromSeason, toSeason, trigger).catch((e) => {
+    logger.error({ err: (e as Error).message }, "PFF backfill crashed");
+  });
+  return {
+    status: "running",
+    playersSynced: 0,
+    teamsSynced: 0,
+    season,
+    message: `PFF backfill ${fromSeason}–${toSeason} started. This runs in the background and may take a while.`,
+  };
+}
+
+async function performPffBackfill(
+  fromSeason: number,
+  toSeason: number,
+  trigger: SyncTrigger,
+): Promise<void> {
+  let meta: { id: number } | undefined;
+  try {
+    if (!pffConfigured()) {
+      throw new Error("PFF is not configured");
+    }
+    [meta] = await db
+      .insert(syncMetaTable)
+      .values({ status: "running", season: toSeason, trigger })
+      .returning();
+
+    let totalStats = 0;
+    let totalCreated = 0;
+    let totalMatched = 0;
+    for (let season = fromSeason; season <= toSeason; season++) {
+      const r = await ingestPff(season);
+      totalStats += r.statLines;
+      totalCreated += r.playersCreated;
+      totalMatched += r.matched;
+    }
+
+    // Rebuild career totals now that more seasons exist (non-fatal).
+    try {
+      await buildCareerStats();
+    } catch (e) {
+      logger.error(
+        { err: (e as Error).message },
+        "Career stats rebuild failed (non-fatal)",
+      );
+    }
+
+    const message = `PFF backfill ${fromSeason}–${toSeason}: ${totalStats} stat lines, ${totalCreated} historical players created, ${totalMatched} matched to existing players`;
+    await db
+      .update(syncMetaTable)
+      .set({
+        status: "success",
+        playersSynced: totalCreated,
+        message,
+        finishedAt: new Date(),
+      })
+      .where(sql`${syncMetaTable.id} = ${meta.id}`);
+    logger.info({ fromSeason, toSeason, totalStats, totalCreated }, "PFF backfill complete");
+  } catch (e) {
+    const message = (e as Error).message;
+    logger.error({ err: message }, "PFF backfill failed");
+    if (meta) {
+      await db
+        .update(syncMetaTable)
+        .set({ status: "error", message, finishedAt: new Date() })
+        .where(sql`${syncMetaTable.id} = ${meta.id}`)
+        .catch((err) =>
+          logger.error(
+            { err: (err as Error).message },
+            "Failed to record PFF backfill error",
+          ),
+        );
+    }
+  } finally {
+    syncing = false;
+    progress = { phase: "idle", processed: 0, total: 0 };
+  }
 }
 
 /**
